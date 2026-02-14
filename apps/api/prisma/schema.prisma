@@ -1,0 +1,295 @@
+// Prisma Schema for Social Dashboard
+// Multi-tenant, multi-user, multi-account social media management
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============== User & Tenant Models ==============
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  avatarUrl    String?  @map("avatar_url")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  memberships  TenantMembership[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  logoUrl   String?  @map("logo_url")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  memberships    TenantMembership[]
+  socialAccounts SocialAccount[]
+  posts          Post[]
+  campaigns      AdCampaign[]
+
+  @@map("tenants")
+}
+
+model TenantMembership {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tenantId  String   @map("tenant_id")
+  role      Role     @default(VIEWER)
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@map("tenant_memberships")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+// ============== Auth Models ==============
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ============== Social Account Models ==============
+
+model SocialAccount {
+  id               String   @id @default(uuid())
+  tenantId         String   @map("tenant_id")
+  platform         Platform
+  platformUserId   String   @map("platform_user_id")
+  platformUsername String   @map("platform_username")
+  displayName      String   @map("display_name")
+  avatarUrl        String?  @map("avatar_url")
+
+  // Encrypted tokens
+  accessToken      String   @map("access_token")
+  refreshToken     String?  @map("refresh_token")
+  tokenExpiresAt   DateTime? @map("token_expires_at")
+
+  // Platform-specific metadata (JSON)
+  metadata         Json?
+
+  isActive         Boolean  @default(true) @map("is_active")
+  connectedAt      DateTime @default(now()) @map("connected_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  posts        Post[]
+  interactions Interaction[]
+  campaigns    AdCampaign[]
+
+  @@unique([tenantId, platform, platformUserId])
+  @@map("social_accounts")
+}
+
+enum Platform {
+  FACEBOOK
+  INSTAGRAM
+  LINKEDIN
+  TWITTER
+  TIKTOK
+  PINTEREST
+}
+
+// ============== Post Models ==============
+
+model Post {
+  id              String     @id @default(uuid())
+  tenantId        String     @map("tenant_id")
+  socialAccountId String     @map("social_account_id")
+
+  contentText     String     @map("content_text")
+  mediaUrls       String[]   @map("media_urls")
+
+  status          PostStatus @default(DRAFT)
+  scheduledAt     DateTime?  @map("scheduled_at")
+  publishedAt     DateTime?  @map("published_at")
+
+  // Platform response data
+  platformPostId  String?    @map("platform_post_id")
+  platformPostUrl String?    @map("platform_post_url")
+  errorMessage    String?    @map("error_message")
+
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  interactions  Interaction[]
+  campaigns     AdCampaign[]
+
+  @@index([tenantId, status])
+  @@index([scheduledAt])
+  @@map("posts")
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+}
+
+// ============== Interaction Models ==============
+
+model Interaction {
+  id                    String          @id @default(uuid())
+  socialAccountId       String          @map("social_account_id")
+  postId                String?         @map("post_id")
+
+  type                  InteractionType
+  platformInteractionId String          @map("platform_interaction_id")
+
+  senderId              String          @map("sender_id")
+  senderName            String          @map("sender_name")
+  senderAvatarUrl       String?         @map("sender_avatar_url")
+
+  messageText           String          @map("message_text")
+  sentimentScore        Float?          @map("sentiment_score") // -1.0 to 1.0
+
+  isReplied             Boolean         @default(false) @map("is_replied")
+  isHidden              Boolean         @default(false) @map("is_hidden")
+  isDeleted             Boolean         @default(false) @map("is_deleted")
+
+  receivedAt            DateTime        @default(now()) @map("received_at")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  post          Post?         @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  @@unique([socialAccountId, platformInteractionId])
+  @@index([socialAccountId, type])
+  @@map("interactions")
+}
+
+enum InteractionType {
+  COMMENT
+  REPLY
+  DM
+  MENTION
+  REVIEW
+}
+
+// ============== Ad Campaign Models ==============
+
+model AdCampaign {
+  id                 String            @id @default(uuid())
+  tenantId           String            @map("tenant_id")
+  socialAccountId    String            @map("social_account_id")
+  postId             String?           @map("post_id") // For "Boost Post"
+
+  platformCampaignId String?           @map("platform_campaign_id")
+  name               String
+
+  objective          CampaignObjective
+  status             CampaignStatus    @default(DRAFT)
+
+  budgetType         BudgetType        @default(DAILY)
+  budgetAmount       Int               @map("budget_amount") // In cents/micros
+  currency           String            @default("USD")
+
+  startDate          DateTime          @map("start_date")
+  endDate            DateTime?         @map("end_date")
+
+  // Aggregated metrics (updated by cron job)
+  totalSpend         Int               @default(0) @map("total_spend")
+  totalImpressions   Int               @default(0) @map("total_impressions")
+  totalClicks        Int               @default(0) @map("total_clicks")
+  totalConversions   Int               @default(0) @map("total_conversions")
+
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  post          Post?         @relation(fields: [postId], references: [id], onDelete: SetNull)
+  metrics       CampaignMetric[]
+
+  @@index([tenantId, status])
+  @@map("ad_campaigns")
+}
+
+enum CampaignObjective {
+  TRAFFIC
+  AWARENESS
+  ENGAGEMENT
+  LEADS
+  SALES
+}
+
+enum CampaignStatus {
+  DRAFT
+  PENDING
+  ACTIVE
+  PAUSED
+  COMPLETED
+  REJECTED
+}
+
+enum BudgetType {
+  DAILY
+  LIFETIME
+}
+
+// Time-series metrics for campaigns (for detailed reporting)
+model CampaignMetric {
+  id         String   @id @default(uuid())
+  campaignId String   @map("campaign_id")
+  date       DateTime @db.Date
+
+  spend       Int @default(0)
+  impressions Int @default(0)
+  clicks      Int @default(0)
+  conversions Int @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  campaign AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, date])
+  @@index([campaignId, date])
+  @@map("campaign_metrics")
+}
