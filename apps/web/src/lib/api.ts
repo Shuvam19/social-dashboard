@@ -136,6 +136,68 @@ export const postsApi = {
     apiClient(`/posts/${id}/publish`, { method: 'POST' }),
 };
 
+// Interactions API
+export const interactionsApi = {
+  getAll: (filters?: {
+    type?: string;
+    platform?: string;
+    isReplied?: boolean;
+    isRead?: boolean;
+    isHidden?: boolean;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, String(value));
+        }
+      });
+    }
+    const query = params.toString();
+    return apiClient<any[]>(`/interactions${query ? `?${query}` : ''}`);
+  },
+
+  getById: (id: string) => apiClient<any>(`/interactions/${id}`),
+
+  getStats: () => apiClient<{
+    total: number;
+    unread: number;
+    unreplied: number;
+    byType: Record<string, number>;
+    byPlatform: Record<string, number>;
+  }>('/interactions/stats'),
+
+  getUnreadCount: () =>
+    apiClient<{ count: number }>('/interactions/unread-count'),
+
+  markAsRead: (id: string) =>
+    apiClient(`/interactions/${id}/read`, { method: 'PATCH' }),
+
+  markAllAsRead: () =>
+    apiClient('/interactions/read-all', { method: 'POST' }),
+
+  markAsReplied: (id: string) =>
+    apiClient(`/interactions/${id}/replied`, { method: 'PATCH' }),
+
+  reply: (id: string, replyText: string) =>
+    apiClient(`/interactions/${id}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ replyText }),
+    }),
+
+  hide: (id: string) =>
+    apiClient(`/interactions/${id}/hide`, { method: 'PATCH' }),
+
+  unhide: (id: string) =>
+    apiClient(`/interactions/${id}/unhide`, { method: 'PATCH' }),
+
+  delete: (id: string) =>
+    apiClient(`/interactions/${id}`, { method: 'DELETE' }),
+};
+
 // Tenants API
 export const tenantsApi = {
   getCurrent: () => apiClient<any>('/tenants/current'),

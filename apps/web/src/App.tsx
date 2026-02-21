@@ -8,6 +8,7 @@ import { AccountsPage } from '@/features/accounts/AccountsPage';
 import { ConnectAccountPage } from '@/features/accounts/ConnectAccountPage';
 import { PostsPage } from '@/features/posts/PostsPage';
 import { CreatePostPage } from '@/features/posts/CreatePostPage';
+import { InboxPage } from '@/features/inbox/InboxPage';
 import { Toaster } from '@/components/ui/toaster';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -57,6 +58,7 @@ function App() {
           <Route path="accounts/connect" element={<ConnectAccountPage />} />
           <Route path="posts" element={<PostsPage />} />
           <Route path="posts/create" element={<CreatePostPage />} />
+          <Route path="inbox" element={<InboxPage />} />
         </Route>
 
         {/* Catch all */}

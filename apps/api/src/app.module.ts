@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './config/prisma.module';
 import { RedisModule } from './config/redis.module';
+import { BullConfigModule } from './config/bull.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { TenantsModule } from './tenants/tenants.module';
@@ -10,6 +11,8 @@ import { SocialAccountsModule } from './social-accounts/social-accounts.module';
 import { PostsModule } from './posts/posts.module';
 import { InteractionsModule } from './interactions/interactions.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
+import { InboxModule } from './inbox/inbox.module';
 
 @Module({
   imports: [
@@ -30,6 +33,7 @@ import { CampaignsModule } from './campaigns/campaigns.module';
     // Infrastructure
     PrismaModule,
     RedisModule,
+    BullConfigModule,
 
     // Feature modules
     AuthModule,
@@ -39,6 +43,8 @@ import { CampaignsModule } from './campaigns/campaigns.module';
     PostsModule,
     InteractionsModule,
     CampaignsModule,
+    WebhooksModule,
+    InboxModule,
   ],
 })
 export class AppModule {}

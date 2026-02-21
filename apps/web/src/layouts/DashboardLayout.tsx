@@ -20,7 +20,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Accounts', href: '/accounts', icon: Share2 },
   { name: 'Posts', href: '/posts', icon: FileText },
-  { name: 'Inbox', href: '/inbox', icon: MessageSquare, disabled: true },
+  { name: 'Inbox', href: '/inbox', icon: MessageSquare },
   { name: 'Campaigns', href: '/campaigns', icon: Megaphone, disabled: true },
 ];
 

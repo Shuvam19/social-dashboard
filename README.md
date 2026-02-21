@@ -4,15 +4,19 @@ A comprehensive social media management dashboard that allows users to manage mu
 
 ## Features
 
-### Phase 1 (Current)
+### Phase 1 (Complete ✅)
 - 🔐 **Unified Identity & Access**: OAuth2 connectivity for Meta (FB/IG), LinkedIn, X (Twitter), TikTok, and Pinterest
 - 👥 **Multi-Tenancy**: Support for multiple users with multiple accounts each
 - 🛡️ **RBAC**: Role-Based Access Control (Admin, Editor, Viewer)
 - 📝 **Simple Posting**: Text-only posting to connected accounts
 
-### Phase 2 (Upcoming)
+### Phase 2 (Complete ✅)
 - 📥 **Grand Central Inbox**: Aggregated comments, DMs, mentions with real-time updates
-- 🔔 **Webhooks**: Real-time notifications from social platforms
+- 🔔 **Webhooks**: Real-time webhook receiver for all platforms with signature verification
+- ⚡ **BullMQ**: Async webhook processing with retry & dead-letter queue
+- 🔌 **WebSockets**: Real-time inbox updates via Socket.io
+- 💬 **Reply/Hide/Delete**: Interaction management with optimistic UI updates
+- 🧵 **Threading**: Parent-child interaction threading support
 
 ### Phase 3 (Planned)
 - 📊 **Ad Manager**: Boost posts, create campaigns, consolidated reporting
@@ -104,19 +108,23 @@ social-dashboard/
 │   │   │   ├── posts/       # Unified posting service
 │   │   │   ├── interactions/  # Comments, DMs, mentions
 │   │   │   ├── campaigns/   # Ad campaigns
+│   │   │   ├── webhooks/    # Webhook receiver & BullMQ processor
+│   │   │   ├── inbox/       # WebSocket gateway (real-time)
+│   │   │   ├── config/      # Prisma, Redis, BullMQ config
 │   │   │   └── common/      # Guards, decorators
-│   │   └── prisma/          # Database schema
+│   │   └── prisma/          # Database schema & migrations
 │   └── web/                 # React + Vite frontend
 │       └── src/
-│           ├── features/    # Feature modules
-│           ├── components/  # Shared components
-│           └── lib/         # Utilities
+│           ├── features/    # Feature modules (auth, posts, inbox...)
+│           ├── components/  # Shared UI components (Shadcn)
+│           └── lib/         # API client, store, utilities
 ├── packages/
 │   └── shared/              # Shared types & utils
-└── docker/                  # Docker configs
+├── docker/                  # Docker configs
+└── docs/                    # Setup guides (OAuth, Webhooks)
 ```
 
-## OAuth Setup
+## OAuth & Webhook Setup
 
 You'll need to create developer apps for each platform:
 
@@ -128,7 +136,8 @@ You'll need to create developer apps for each platform:
 | TikTok | https://developers.tiktok.com |
 | Pinterest | https://developers.pinterest.com |
 
-See `docs/oauth-setup.md` for detailed instructions.
+See `docs/oauth-setup.md` for OAuth instructions.
+See `docs/webhook-setup.md` for webhook setup and testing.
 
 ## License
 

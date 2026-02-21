@@ -7,10 +7,10 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true, // Required for webhook signature verification
+  });
   const configService = app.get(ConfigService);
-
-
 
   // Security
   app.use(helmet());
@@ -51,6 +51,7 @@ async function bootstrap() {
     .addTag('posts', 'Content publishing')
     .addTag('interactions', 'Comments, DMs, mentions')
     .addTag('campaigns', 'Ad campaigns')
+    .addTag('webhooks', 'Webhook ingestion')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
