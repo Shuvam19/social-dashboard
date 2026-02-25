@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { postsApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,7 +16,9 @@ import {
   CheckCircle,
   XCircle,
   Edit,
+  Megaphone,
 } from 'lucide-react';
+import { BoostPostDialog } from '@/features/campaigns/BoostPostDialog';
 
 const statusColors: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-700',
@@ -36,6 +39,7 @@ const statusIcons: Record<string, any> = {
 export function PostsPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [boostPost, setBoostPost] = useState<{ id: string; content: string } | null>(null);
 
   const postsQuery = useQuery({
     queryKey: ['posts'],
@@ -199,6 +203,21 @@ export function PostsPage() {
                       )}
                     </div>
                     <div className="flex items-center space-x-2">
+                      {post.status === 'PUBLISHED' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          title="Boost Post"
+                          onClick={() =>
+                            setBoostPost({
+                              id: post.id,
+                              content: post.contentText,
+                            })
+                          }
+                        >
+                          <Megaphone className="h-4 w-4" />
+                        </Button>
+                      )}
                       {(post.status === 'DRAFT' || post.status === 'SCHEDULED') && (
                         <>
                           <Button
@@ -231,6 +250,14 @@ export function PostsPage() {
           })}
         </div>
       )}
+
+      {/* Boost Post Dialog */}
+      <BoostPostDialog
+        postId={boostPost?.id || ''}
+        postContent={boostPost?.content || ''}
+        isOpen={!!boostPost}
+        onClose={() => setBoostPost(null)}
+      />
     </div>
   );
 }

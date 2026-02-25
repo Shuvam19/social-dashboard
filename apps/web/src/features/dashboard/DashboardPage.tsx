@@ -1,14 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { socialAccountsApi, postsApi } from '@/lib/api';
+import { socialAccountsApi, postsApi, analyticsApi } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Share2,
   FileText,
-  Users,
-  TrendingUp,
+  DollarSign,
+  Megaphone,
   Plus,
   ArrowRight,
 } from 'lucide-react';
@@ -33,8 +33,14 @@ export function DashboardPage() {
     queryFn: () => postsApi.getAll(),
   });
 
+  const analyticsQuery = useQuery({
+    queryKey: ['analytics-summary'],
+    queryFn: () => analyticsApi.getSummary(),
+  });
+
   const accounts = accountsQuery.data || [];
   const posts = postsQuery.data || [];
+  const analytics = analyticsQuery.data;
 
   const publishedPosts = posts.filter((p: any) => p.status === 'PUBLISHED').length;
   const scheduledPosts = posts.filter((p: any) => p.status === 'SCHEDULED').length;
@@ -81,26 +87,38 @@ export function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Engagement</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Ad Spend</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">--</div>
+            <div className="text-2xl font-bold">
+              {analytics
+                ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+                    analytics.totalSpend / 100,
+                  )
+                : '$0.00'}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Coming in Phase 2
+              {analytics?.totalImpressions
+                ? `${(analytics.totalImpressions / 1000).toFixed(1)}K impressions`
+                : 'Last 30 days'}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Inbox</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Campaigns</CardTitle>
+            <Megaphone className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">--</div>
+            <div className="text-2xl font-bold">
+              {analytics?.activeCampaigns ?? 0}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Coming in Phase 2
+              {analytics?.totalClicks
+                ? `${analytics.totalClicks} clicks · CTR ${analytics.ctr?.toFixed(2)}%`
+                : 'Active campaigns'}
             </p>
           </CardContent>
         </Card>

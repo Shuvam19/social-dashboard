@@ -9,6 +9,10 @@ import { ConnectAccountPage } from '@/features/accounts/ConnectAccountPage';
 import { PostsPage } from '@/features/posts/PostsPage';
 import { CreatePostPage } from '@/features/posts/CreatePostPage';
 import { InboxPage } from '@/features/inbox/InboxPage';
+import { CampaignsPage } from '@/features/campaigns/CampaignsPage';
+import { CampaignDetailPage } from '@/features/campaigns/CampaignDetailPage';
+import { CreateCampaignPage } from '@/features/campaigns/CreateCampaignPage';
+import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 import { Toaster } from '@/components/ui/toaster';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -59,6 +63,10 @@ function App() {
           <Route path="posts" element={<PostsPage />} />
           <Route path="posts/create" element={<CreatePostPage />} />
           <Route path="inbox" element={<InboxPage />} />
+          <Route path="campaigns" element={<CampaignsPage />} />
+          <Route path="campaigns/create" element={<CreateCampaignPage />} />
+          <Route path="campaigns/:id" element={<CampaignDetailPage />} />
+          <Route path="analytics" element={<AnalyticsPage />} />
         </Route>
 
         {/* Catch all */}

@@ -210,3 +210,94 @@ export const tenantsApi = {
       body: JSON.stringify(data),
     }),
 };
+
+// Ads / Campaigns API
+export const adsApi = {
+  getCampaigns: (status?: string) =>
+    apiClient<any[]>(`/ads/campaigns${status ? `?status=${status}` : ''}`),
+
+  getCampaignById: (id: string) => apiClient<any>(`/ads/campaigns/${id}`),
+
+  createCampaign: (data: {
+    socialAccountId: string;
+    postId?: string;
+    name: string;
+    objective: string;
+    budgetType: string;
+    budgetAmount: number;
+    currency?: string;
+    startDate: string;
+    endDate?: string;
+    targeting?: Record<string, unknown>;
+  }) =>
+    apiClient('/ads/campaigns', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateCampaignStatus: (id: string, status: string) =>
+    apiClient(`/ads/campaigns/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
+
+  deleteCampaign: (id: string) =>
+    apiClient(`/ads/campaigns/${id}`, { method: 'DELETE' }),
+
+  syncCampaigns: (socialAccountId: string) =>
+    apiClient<{ synced: number; campaigns: any[] }>('/ads/campaigns/sync', {
+      method: 'POST',
+      body: JSON.stringify({ socialAccountId }),
+    }),
+
+  boostPost: (data: {
+    postId: string;
+    socialAccountId: string;
+    name?: string;
+    budgetAmount: number;
+    budgetType: string;
+    duration: number;
+    objective: string;
+    targeting?: Record<string, unknown>;
+  }) =>
+    apiClient('/ads/boost', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getAdSets: (campaignId: string) =>
+    apiClient<any[]>(`/ads/campaigns/${campaignId}/adsets`),
+
+  getAds: (campaignId: string) =>
+    apiClient<any[]>(`/ads/campaigns/${campaignId}/ads`),
+};
+
+// Analytics API
+export const analyticsApi = {
+  getSummary: (from?: string, to?: string) => {
+    const params = new URLSearchParams();
+    if (from) params.append('from', from);
+    if (to) params.append('to', to);
+    const query = params.toString();
+    return apiClient<any>(`/analytics/summary${query ? `?${query}` : ''}`);
+  },
+
+  getOverview: (from?: string, to?: string) => {
+    const params = new URLSearchParams();
+    if (from) params.append('from', from);
+    if (to) params.append('to', to);
+    const query = params.toString();
+    return apiClient<any>(`/analytics/overview${query ? `?${query}` : ''}`);
+  },
+
+  getCampaignTimeSeries: (campaignId: string, from?: string, to?: string) => {
+    const params = new URLSearchParams();
+    if (from) params.append('from', from);
+    if (to) params.append('to', to);
+    const query = params.toString();
+    return apiClient<any[]>(
+      `/analytics/campaigns/${campaignId}/timeseries${query ? `?${query}` : ''}`,
+    );
+  },
+};
+

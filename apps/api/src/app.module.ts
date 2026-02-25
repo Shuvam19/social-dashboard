@@ -11,6 +11,8 @@ import { SocialAccountsModule } from './social-accounts/social-accounts.module';
 import { PostsModule } from './posts/posts.module';
 import { InteractionsModule } from './interactions/interactions.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
+import { AdsModule } from './ads/ads.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { InboxModule } from './inbox/inbox.module';
 
@@ -43,6 +45,8 @@ import { InboxModule } from './inbox/inbox.module';
     PostsModule,
     InteractionsModule,
     CampaignsModule,
+    AdsModule,
+    AnalyticsModule,
     WebhooksModule,
     InboxModule,
   ],

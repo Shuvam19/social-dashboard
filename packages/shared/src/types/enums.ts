@@ -57,3 +57,21 @@ export enum BudgetType {
   DAILY = 'daily',
   LIFETIME = 'lifetime',
 }
+
+// Ad Status (for Ad Sets and Ads)
+export enum AdStatus {
+  DRAFT = 'draft',
+  PENDING_REVIEW = 'pending_review',
+  ACTIVE = 'active',
+  PAUSED = 'paused',
+  DELETED = 'deleted',
+  REJECTED = 'rejected',
+}
+
+// Metric Entity Type (for granular metrics)
+export enum MetricEntityType {
+  CAMPAIGN = 'campaign',
+  AD_SET = 'ad_set',
+  AD = 'ad',
+}
+

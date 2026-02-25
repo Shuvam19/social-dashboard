@@ -5,6 +5,7 @@ import {
   FileText,
   MessageSquare,
   Megaphone,
+  BarChart3,
   LogOut,
   Menu,
   X,
@@ -21,7 +22,8 @@ const navigation = [
   { name: 'Accounts', href: '/accounts', icon: Share2 },
   { name: 'Posts', href: '/posts', icon: FileText },
   { name: 'Inbox', href: '/inbox', icon: MessageSquare },
-  { name: 'Campaigns', href: '/campaigns', icon: Megaphone, disabled: true },
+  { name: 'Campaigns', href: '/campaigns', icon: Megaphone },
+  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
 ];
 
 export function DashboardLayout() {
@@ -95,23 +97,16 @@ export function DashboardLayout() {
               return (
                 <Link
                   key={item.name}
-                  to={item.disabled ? '#' : item.href}
+                  to={item.href}
                   className={cn(
                     'flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors',
                     isActive
                       ? 'bg-primary text-primary-foreground'
                       : 'text-gray-700 hover:bg-gray-100',
-                    item.disabled && 'opacity-50 cursor-not-allowed'
                   )}
-                  onClick={(e) => item.disabled && e.preventDefault()}
                 >
                   <item.icon className="mr-3 h-5 w-5" />
                   {item.name}
-                  {item.disabled && (
-                    <span className="ml-auto text-xs bg-gray-200 px-2 py-0.5 rounded">
-                      Soon
-                    </span>
-                  )}
                 </Link>
               );
             })}

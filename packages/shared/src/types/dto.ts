@@ -6,6 +6,8 @@ import {
   CampaignStatus,
   CampaignObjective,
   BudgetType,
+  AdStatus,
+  MetricEntityType,
 } from './enums.js';
 
 // ============== User DTOs ==============
@@ -186,6 +188,133 @@ export interface CreateCampaignDto {
   currency: string;
   startDate: string;
   endDate?: string;
+  targeting?: Record<string, unknown>;
+}
+
+// ============== Ad Set DTOs ==============
+
+export interface AdSetDto {
+  id: string;
+  campaignId: string;
+  platformAdSetId?: string;
+  name: string;
+  status: AdStatus;
+  dailyBudget?: number;
+  lifetimeBudget?: number;
+  bidStrategy?: string;
+  bidAmount?: number;
+  targeting?: Record<string, unknown>;
+  placements?: Record<string, unknown>;
+  startTime?: string;
+  endTime?: string;
+  totalSpend: number;
+  totalImpressions: number;
+  totalClicks: number;
+  totalConversions: number;
+  ads?: AdDto[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============== Ad DTOs ==============
+
+export interface AdDto {
+  id: string;
+  adSetId: string;
+  postId?: string;
+  post?: PostDto;
+  platformAdId?: string;
+  name: string;
+  status: AdStatus;
+  creative?: Record<string, unknown>;
+  totalSpend: number;
+  totalImpressions: number;
+  totalClicks: number;
+  totalConversions: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============== Campaign Detail DTO ==============
+
+export interface CampaignDetailDto extends CampaignDto {
+  adSets?: AdSetDto[];
+  post?: PostDto;
+  dailyMetrics?: CampaignMetricPointDto[];
+}
+
+export interface CampaignMetricPointDto {
+  date: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+}
+
+// ============== Boost Post DTOs ==============
+
+export interface BoostPostDto {
+  postId: string;
+  socialAccountId: string;
+  name?: string;
+  budgetAmount: number;
+  budgetType: BudgetType;
+  duration: number; // Days
+  objective: CampaignObjective;
+  targeting?: Record<string, unknown>;
+}
+
+// ============== Ad Metric DTOs ==============
+
+export interface AdMetricDto {
+  id: string;
+  entityType: MetricEntityType;
+  entityId: string;
+  date: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  ctr: number;
+  cpc: number;
+  cpm: number;
+}
+
+// ============== Analytics DTOs ==============
+
+export interface AnalyticsSummaryDto {
+  totalSpend: number;
+  totalImpressions: number;
+  totalClicks: number;
+  totalConversions: number;
+  ctr: number;
+  cpc: number;
+  activeCampaigns: number;
+  spendChange: number; // Percentage change vs previous period
+  impressionsChange: number;
+  clicksChange: number;
+}
+
+export interface AnalyticsOverviewDto {
+  summary: AnalyticsSummaryDto;
+  dailyMetrics: TimeSeriesPointDto[];
+  topCampaigns: CampaignDto[];
+}
+
+export interface TimeSeriesPointDto {
+  date: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+}
+
+export interface UpdateCampaignStatusDto {
+  status: CampaignStatus;
+}
+
+export interface SyncCampaignsDto {
+  socialAccountId: string;
 }
 
 // ============== API Response DTOs ==============

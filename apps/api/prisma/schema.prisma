@@ -24,7 +24,7 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
-  memberships  TenantMembership[]
+  memberships   TenantMembership[]
   refreshTokens RefreshToken[]
 
   @@map("users")
@@ -98,19 +98,19 @@ model SocialAccount {
   avatarUrl        String?  @map("avatar_url")
 
   // Encrypted tokens
-  accessToken      String   @map("access_token")
-  refreshToken     String?  @map("refresh_token")
-  tokenExpiresAt   DateTime? @map("token_expires_at")
+  accessToken    String    @map("access_token")
+  refreshToken   String?   @map("refresh_token")
+  tokenExpiresAt DateTime? @map("token_expires_at")
 
   // Platform-specific metadata (JSON)
-  metadata         Json?
+  metadata Json?
 
-  isActive         Boolean  @default(true) @map("is_active")
-  connectedAt      DateTime @default(now()) @map("connected_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  isActive    Boolean  @default(true) @map("is_active")
+  connectedAt DateTime @default(now()) @map("connected_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   posts        Post[]
   interactions Interaction[]
   campaigns    AdCampaign[]
@@ -131,30 +131,31 @@ enum Platform {
 // ============== Post Models ==============
 
 model Post {
-  id              String     @id @default(uuid())
-  tenantId        String     @map("tenant_id")
-  socialAccountId String     @map("social_account_id")
+  id              String @id @default(uuid())
+  tenantId        String @map("tenant_id")
+  socialAccountId String @map("social_account_id")
 
-  contentText     String     @map("content_text")
-  mediaUrls       String[]   @map("media_urls")
+  contentText String   @map("content_text")
+  mediaUrls   String[] @map("media_urls")
 
-  status          PostStatus @default(DRAFT)
-  scheduledAt     DateTime?  @map("scheduled_at")
-  publishedAt     DateTime?  @map("published_at")
+  status      PostStatus @default(DRAFT)
+  scheduledAt DateTime?  @map("scheduled_at")
+  publishedAt DateTime?  @map("published_at")
 
   // Platform response data
-  platformPostId  String?    @map("platform_post_id")
-  platformPostUrl String?    @map("platform_post_url")
-  errorMessage    String?    @map("error_message")
+  platformPostId  String? @map("platform_post_id")
+  platformPostUrl String? @map("platform_post_url")
+  errorMessage    String? @map("error_message")
 
-  createdAt       DateTime   @default(now()) @map("created_at")
-  updatedAt       DateTime   @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
   tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
   interactions  Interaction[]
   campaigns     AdCampaign[]
+  ads           Ad[]
 
   @@index([tenantId, status])
   @@index([scheduledAt])
@@ -172,34 +173,34 @@ enum PostStatus {
 // ============== Interaction Models ==============
 
 model Interaction {
-  id                    String          @id @default(uuid())
-  socialAccountId       String          @map("social_account_id")
-  postId                String?         @map("post_id")
+  id              String  @id @default(uuid())
+  socialAccountId String  @map("social_account_id")
+  postId          String? @map("post_id")
 
   type                  InteractionType
   platformInteractionId String          @map("platform_interaction_id")
 
-  senderId              String          @map("sender_id")
-  senderName            String          @map("sender_name")
-  senderAvatarUrl       String?         @map("sender_avatar_url")
+  senderId        String  @map("sender_id")
+  senderName      String  @map("sender_name")
+  senderAvatarUrl String? @map("sender_avatar_url")
 
-  messageText           String          @map("message_text")
-  sentimentScore        Float?          @map("sentiment_score") // -1.0 to 1.0
+  messageText    String @map("message_text")
+  sentimentScore Float? @map("sentiment_score") // -1.0 to 1.0
 
-  isReplied             Boolean         @default(false) @map("is_replied")
-  isHidden              Boolean         @default(false) @map("is_hidden")
-  isDeleted             Boolean         @default(false) @map("is_deleted")
-  isRead                Boolean         @default(false) @map("is_read")
+  isReplied Boolean @default(false) @map("is_replied")
+  isHidden  Boolean @default(false) @map("is_hidden")
+  isDeleted Boolean @default(false) @map("is_deleted")
+  isRead    Boolean @default(false) @map("is_read")
 
   // Threading support
-  parentId              String?         @map("parent_id")
+  parentId String? @map("parent_id")
 
   // Raw webhook payload for debugging
-  rawPayload            Json?           @map("raw_payload")
+  rawPayload Json? @map("raw_payload")
 
-  receivedAt            DateTime        @default(now()) @map("received_at")
-  createdAt             DateTime        @default(now()) @map("created_at")
-  updatedAt             DateTime        @updatedAt @map("updated_at")
+  receivedAt DateTime @default(now()) @map("received_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   // Relations
   socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
@@ -234,8 +235,8 @@ model WebhookLog {
   error       String?
   attempts    Int       @default(0)
 
-  receivedAt  DateTime  @default(now()) @map("received_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
+  receivedAt DateTime @default(now()) @map("received_at")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   @@index([platform, receivedAt])
   @@index([processedAt])
@@ -245,41 +246,126 @@ model WebhookLog {
 // ============== Ad Campaign Models ==============
 
 model AdCampaign {
-  id                 String            @id @default(uuid())
-  tenantId           String            @map("tenant_id")
-  socialAccountId    String            @map("social_account_id")
-  postId             String?           @map("post_id") // For "Boost Post"
+  id              String  @id @default(uuid())
+  tenantId        String  @map("tenant_id")
+  socialAccountId String  @map("social_account_id")
+  postId          String? @map("post_id") // For "Boost Post"
 
-  platformCampaignId String?           @map("platform_campaign_id")
+  platformCampaignId String? @map("platform_campaign_id")
   name               String
 
-  objective          CampaignObjective
-  status             CampaignStatus    @default(DRAFT)
+  objective CampaignObjective
+  status    CampaignStatus    @default(DRAFT)
 
-  budgetType         BudgetType        @default(DAILY)
-  budgetAmount       Int               @map("budget_amount") // In cents/micros
-  currency           String            @default("USD")
+  budgetType   BudgetType @default(DAILY)
+  budgetAmount Int        @map("budget_amount") // In cents/micros
+  currency     String     @default("USD")
 
-  startDate          DateTime          @map("start_date")
-  endDate            DateTime?         @map("end_date")
+  startDate DateTime  @map("start_date")
+  endDate   DateTime? @map("end_date")
+
+  // Targeting (JSON blob for flexible platform-specific targeting)
+  targeting Json?
 
   // Aggregated metrics (updated by cron job)
-  totalSpend         Int               @default(0) @map("total_spend")
-  totalImpressions   Int               @default(0) @map("total_impressions")
-  totalClicks        Int               @default(0) @map("total_clicks")
-  totalConversions   Int               @default(0) @map("total_conversions")
+  totalSpend       Int @default(0) @map("total_spend")
+  totalImpressions Int @default(0) @map("total_impressions")
+  totalClicks      Int @default(0) @map("total_clicks")
+  totalConversions Int @default(0) @map("total_conversions")
 
-  createdAt          DateTime          @default(now()) @map("created_at")
-  updatedAt          DateTime          @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
-  post          Post?         @relation(fields: [postId], references: [id], onDelete: SetNull)
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  socialAccount SocialAccount    @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  post          Post?            @relation(fields: [postId], references: [id], onDelete: SetNull)
   metrics       CampaignMetric[]
+  adSets        AdSet[]
 
   @@index([tenantId, status])
   @@map("ad_campaigns")
+}
+
+// ============== Ad Set Models ==============
+
+model AdSet {
+  id              String   @id @default(uuid())
+  campaignId      String   @map("campaign_id")
+  platformAdSetId String?  @map("platform_ad_set_id")
+  name            String
+  status          AdStatus @default(DRAFT)
+
+  // Budget & bidding
+  dailyBudget    Int?    @map("daily_budget") // In cents/micros
+  lifetimeBudget Int?    @map("lifetime_budget")
+  bidStrategy    String? @map("bid_strategy") // LOWEST_COST, COST_CAP, etc.
+  bidAmount      Int?    @map("bid_amount")
+
+  // Targeting
+  targeting  Json?
+  placements Json? // Auto or manual placement config
+
+  // Schedule
+  startTime DateTime? @map("start_time")
+  endTime   DateTime? @map("end_time")
+
+  // Aggregated metrics
+  totalSpend       Int @default(0) @map("total_spend")
+  totalImpressions Int @default(0) @map("total_impressions")
+  totalClicks      Int @default(0) @map("total_clicks")
+  totalConversions Int @default(0) @map("total_conversions")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  campaign AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  ads      Ad[]
+
+  @@unique([campaignId, platformAdSetId])
+  @@index([campaignId, status])
+  @@map("ad_sets")
+}
+
+// ============== Ad Models ==============
+
+model Ad {
+  id           String   @id @default(uuid())
+  adSetId      String   @map("ad_set_id")
+  postId       String?  @map("post_id") // For boost: link to organic post
+  platformAdId String?  @map("platform_ad_id")
+  name         String
+  status       AdStatus @default(DRAFT)
+
+  // Creative (JSON for flexibility: headline, body, CTA, image URL, etc.)
+  creative Json?
+
+  // Aggregated metrics
+  totalSpend       Int @default(0) @map("total_spend")
+  totalImpressions Int @default(0) @map("total_impressions")
+  totalClicks      Int @default(0) @map("total_clicks")
+  totalConversions Int @default(0) @map("total_conversions")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  adSet AdSet @relation(fields: [adSetId], references: [id], onDelete: Cascade)
+  post  Post? @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  @@unique([adSetId, platformAdId])
+  @@index([adSetId, status])
+  @@map("ads")
+}
+
+enum AdStatus {
+  DRAFT
+  PENDING_REVIEW
+  ACTIVE
+  PAUSED
+  DELETED
+  REJECTED
 }
 
 enum CampaignObjective {
@@ -304,6 +390,8 @@ enum BudgetType {
   LIFETIME
 }
 
+// ============== Metrics Models ==============
+
 // Time-series metrics for campaigns (for detailed reporting)
 model CampaignMetric {
   id         String   @id @default(uuid())
@@ -323,4 +411,33 @@ model CampaignMetric {
   @@unique([campaignId, date])
   @@index([campaignId, date])
   @@map("campaign_metrics")
+}
+
+// Granular metrics for ad sets and ads
+model AdMetric {
+  id         String           @id @default(uuid())
+  entityType MetricEntityType @map("entity_type")
+  entityId   String           @map("entity_id")
+  date       DateTime         @db.Date
+
+  spend       Int   @default(0)
+  impressions Int   @default(0)
+  clicks      Int   @default(0)
+  conversions Int   @default(0)
+  ctr         Float @default(0) // Click-through rate
+  cpc         Float @default(0) // Cost per click
+  cpm         Float @default(0) // Cost per mille
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([entityType, entityId, date])
+  @@index([entityType, date])
+  @@index([entityId, date])
+  @@map("ad_metrics")
+}
+
+enum MetricEntityType {
+  CAMPAIGN
+  AD_SET
+  AD
 }
