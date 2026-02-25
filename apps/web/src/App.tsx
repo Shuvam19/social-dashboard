@@ -62,6 +62,7 @@ function App() {
           <Route path="accounts/connect" element={<ConnectAccountPage />} />
           <Route path="posts" element={<PostsPage />} />
           <Route path="posts/create" element={<CreatePostPage />} />
+          <Route path="posts/:id/edit" element={<CreatePostPage />} />
           <Route path="inbox" element={<InboxPage />} />
           <Route path="campaigns" element={<CampaignsPage />} />
           <Route path="campaigns/create" element={<CreateCampaignPage />} />

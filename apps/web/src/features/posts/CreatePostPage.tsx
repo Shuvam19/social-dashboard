@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { useNavigate, Link, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,7 +17,6 @@ import { useToast } from '@/components/ui/use-toast';
 import {
   ArrowLeft,
   Loader2,
-  Save,
   Check,
   Smile,
   AtSign,
@@ -125,6 +124,8 @@ function Toggle({ checked, onToggle }: { checked: boolean; onToggle: () => void 
 
 export function CreatePostPage() {
   const navigate = useNavigate();
+  const { id: postId } = useParams<{ id: string }>();
+  const isEditMode = !!postId;
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -143,6 +144,13 @@ export function CreatePostPage() {
   const accountsQuery = useQuery({
     queryKey: ['social-accounts'],
     queryFn: socialAccountsApi.getAll,
+  });
+
+  // Fetch existing post when in edit mode
+  const postQuery = useQuery({
+    queryKey: ['posts', postId],
+    queryFn: () => postsApi.getById(postId!),
+    enabled: isEditMode,
   });
 
   const {
@@ -169,6 +177,36 @@ export function CreatePostPage() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: (data: { contentText?: string; mediaUrls?: string[]; scheduledAt?: string; status?: string }) =>
+      postsApi.update(postId!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['posts', postId] });
+      toast({ title: 'Post updated!', description: 'Your changes have been saved.' });
+      navigate('/posts');
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Failed to update post', description: error.message });
+    },
+  });
+
+  // Populate form with existing post data when in edit mode
+  useEffect(() => {
+    if (postQuery.data) {
+      const post = postQuery.data;
+      setValue('contentText', post.contentText || '');
+      if (post.scheduledAt) {
+        const date = new Date(post.scheduledAt);
+        const localDatetime = date.toISOString().slice(0, 16);
+        setValue('scheduledAt', localDatetime);
+      }
+      if (post.socialAccountId) {
+        setSelectedAccounts([post.socialAccountId]);
+      }
+    }
+  }, [postQuery.data, setValue]);
+
   const toggleAccount = (accountId: string) => {
     setSelectedAccounts((prev) =>
       prev.includes(accountId) ? prev.filter((id) => id !== accountId) : [...prev, accountId]
@@ -176,7 +214,7 @@ export function CreatePostPage() {
   };
 
   const onSubmit = (data: CreatePostFormData) => {
-    if (selectedAccounts.length === 0) {
+    if (!isEditMode && selectedAccounts.length === 0) {
       toast({
         variant: 'destructive',
         title: 'No accounts selected',
@@ -184,15 +222,55 @@ export function CreatePostPage() {
       });
       return;
     }
-    createMutation.mutate({
-      socialAccountIds: selectedAccounts,
-      contentText: data.contentText,
-      scheduledAt: data.scheduledAt || undefined,
-    });
+
+    if (isEditMode) {
+      updateMutation.mutate({
+        contentText: data.contentText,
+        scheduledAt: data.scheduledAt || undefined,
+      });
+    } else {
+      createMutation.mutate({
+        socialAccountIds: selectedAccounts,
+        contentText: data.contentText,
+        scheduledAt: data.scheduledAt || undefined,
+      });
+    }
   };
 
   const handleSaveDraft = () => {
-    toast({ title: 'Draft saved', description: 'Your post has been saved as a draft.' });
+    const contentText = watch('contentText');
+
+    if (!contentText) {
+      toast({
+        variant: 'destructive',
+        title: 'Content required',
+        description: 'Please add some content before saving.'
+      });
+      return;
+    }
+
+    if (isEditMode) {
+      // Update existing post as draft
+      updateMutation.mutate({
+        contentText,
+        status: 'DRAFT',
+      });
+    } else {
+      // Create new post as draft
+      if (selectedAccounts.length === 0) {
+        toast({
+          variant: 'destructive',
+          title: 'No accounts selected',
+          description: 'Please select at least one account to save draft.',
+        });
+        return;
+      }
+      createMutation.mutate({
+        socialAccountIds: selectedAccounts,
+        contentText,
+        // No scheduledAt means it will be saved as DRAFT
+      });
+    }
   };
 
   // ── Media helpers ──────────────────────────────────────────────────────────
@@ -287,14 +365,36 @@ export function CreatePostPage() {
 
   return (
     <div className="max-w-[1200px] mx-auto space-y-6">
+      {/* Loading state for edit mode */}
+      {isEditMode && postQuery.isLoading && (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {/* Error state for edit mode */}
+      {isEditMode && postQuery.isError && (
+        <div className="text-center py-12">
+          <p className="text-destructive">Failed to load post. Please try again.</p>
+          <Button variant="outline" className="mt-4" onClick={() => navigate('/posts')}>
+            Go Back to Posts
+          </Button>
+        </div>
+      )}
+
+      {/* Only show form when not loading in edit mode */}
+      {(!isEditMode || (isEditMode && postQuery.data)) && (
+        <>
       {/* ── Page Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" asChild>
           <Link to="/posts"><ArrowLeft className="h-5 w-5" /></Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold">Create Post</h1>
-          <p className="text-muted-foreground text-sm">Compose and publish to your social media accounts</p>
+          <h1 className="text-2xl font-bold">{isEditMode ? 'Edit Post' : 'Create Post'}</h1>
+          <p className="text-muted-foreground text-sm">
+            {isEditMode ? 'Make changes to your post' : 'Compose and publish to your social media accounts'}
+          </p>
         </div>
       </div>
 
@@ -311,16 +411,34 @@ export function CreatePostPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-sm font-semibold">Select Accounts</CardTitle>
-                    <CardDescription className="text-xs">Choose which platforms to post to</CardDescription>
+                    <CardTitle className="text-sm font-semibold">
+                      {isEditMode ? 'Account' : 'Select Accounts'}
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      {isEditMode ? 'This post is associated with this account' : 'Choose which platforms to post to'}
+                    </CardDescription>
                   </div>
-                  {selectedAccounts.length > 0 && (
+                  {!isEditMode && selectedAccounts.length > 0 && (
                     <Badge variant="secondary">{selectedAccounts.length} selected</Badge>
                   )}
                 </div>
               </CardHeader>
               <CardContent>
-                {accounts.length === 0 ? (
+                {isEditMode && postQuery.data ? (
+                  // Show the associated account for edit mode
+                  <div className="flex items-center gap-3 p-3 border-2 rounded-lg bg-muted/30">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={postQuery.data.socialAccount?.avatarUrl} />
+                      <AvatarFallback className={cn('text-white text-sm font-semibold', platformAvatarBg[postQuery.data.socialAccount?.platform])}>
+                        {postQuery.data.socialAccount?.displayName?.charAt(0) || '?'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{postQuery.data.socialAccount?.displayName}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{postQuery.data.socialAccount?.platform?.toLowerCase()}</p>
+                    </div>
+                  </div>
+                ) : accounts.length === 0 ? (
                   <div className="text-center py-6 space-y-3">
                     <p className="text-muted-foreground text-sm">No accounts connected</p>
                     <Button asChild variant="outline" size="sm">
@@ -601,21 +719,25 @@ export function CreatePostPage() {
                     <Button type="button" variant="outline" onClick={() => navigate('/posts')}>
                       Cancel
                     </Button>
-                    <Button type="button" variant="outline" className="gap-1.5" onClick={handleSaveDraft}>
-                      <FileText className="h-4 w-4" />
+                    <Button type="button" variant="outline" className="gap-1.5" onClick={handleSaveDraft} disabled={createMutation.isPending || updateMutation.isPending}>
+                      {(createMutation.isPending || updateMutation.isPending) ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <FileText className="h-4 w-4" />
+                      )}
                       Save Draft
                     </Button>
                     <Button
                       type="submit"
-                      disabled={createMutation.isPending || selectedAccounts.length === 0 || isOverLimit}
+                      disabled={createMutation.isPending || updateMutation.isPending || (!isEditMode && selectedAccounts.length === 0) || isOverLimit}
                       className="gap-1.5"
                     >
-                      {createMutation.isPending ? (
+                      {(createMutation.isPending || updateMutation.isPending) ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <Send className="h-4 w-4" />
                       )}
-                      Publish Now
+                      {isEditMode ? 'Update Post' : 'Publish Now'}
                     </Button>
                   </div>
                 </div>
@@ -861,6 +983,8 @@ export function CreatePostPage() {
           </div>
         </div>
       </form>
+        </>
+      )}
     </div>
   );
 }

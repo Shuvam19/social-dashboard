@@ -1,5 +1,6 @@
-import { IsOptional, IsString, IsDateString, IsArray } from 'class-validator';
+import { IsOptional, IsString, IsDateString, IsArray, IsEnum } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { PostStatus } from '@prisma/client';
 
 export class UpdatePostDto {
   @ApiPropertyOptional({ description: 'Updated content text' })
@@ -17,4 +18,9 @@ export class UpdatePostDto {
   @IsOptional()
   @IsDateString()
   scheduledAt?: string;
+
+  @ApiPropertyOptional({ description: 'Post status', enum: PostStatus })
+  @IsOptional()
+  @IsEnum(PostStatus)
+  status?: PostStatus;
 }

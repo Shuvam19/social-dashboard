@@ -222,6 +222,15 @@ export function PostsPage() {
                         <>
                           <Button
                             size="sm"
+                            variant="outline"
+                            asChild
+                          >
+                            <Link to={`/posts/${post.id}/edit`}>
+                              <Edit className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <Button
+                            size="sm"
                             onClick={() => publishMutation.mutate(post.id)}
                             disabled={publishMutation.isPending}
                           >

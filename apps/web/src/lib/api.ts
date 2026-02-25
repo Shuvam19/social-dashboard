@@ -123,7 +123,7 @@ export const postsApi = {
       body: JSON.stringify(data),
     }),
 
-  update: (id: string, data: { contentText?: string; mediaUrls?: string[]; scheduledAt?: string }) =>
+  update: (id: string, data: { contentText?: string; mediaUrls?: string[]; scheduledAt?: string; status?: string }) =>
     apiClient(`/posts/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
