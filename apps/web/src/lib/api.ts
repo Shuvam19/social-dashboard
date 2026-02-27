@@ -198,16 +198,41 @@ export const interactionsApi = {
     apiClient(`/interactions/${id}`, { method: 'DELETE' }),
 };
 
+// Users API
+export const usersApi = {
+  getProfile: () => apiClient<any>('/users/me'),
+
+  updateProfile: (data: { firstName?: string; lastName?: string; avatarUrl?: string }) =>
+    apiClient<any>('/users/me', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  getTenants: () => apiClient<any[]>('/users/me/tenants'),
+};
+
 // Tenants API
 export const tenantsApi = {
   getCurrent: () => apiClient<any>('/tenants/current'),
 
   getMembers: () => apiClient<any[]>('/tenants/current/members'),
 
+  create: (data: { name: string; slug: string; logoUrl?: string }) =>
+    apiClient<any>('/tenants', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
   inviteMember: (data: { email: string; role: string }) =>
     apiClient('/tenants/current/members', {
       method: 'POST',
       body: JSON.stringify(data),
+    }),
+
+  switchTenant: (tenantId: string) =>
+    apiClient<{ accessToken: string; refreshToken: string }>('/auth/switch-tenant', {
+      method: 'POST',
+      body: JSON.stringify({ tenantId }),
     }),
 };
 

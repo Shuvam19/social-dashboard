@@ -9,13 +9,35 @@ import {
   LogOut,
   Menu,
   X,
+  ChevronsUpDown,
+  Plus,
+  Check,
+  User as UserIcon,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useAuthStore } from '@/lib/store';
-import { authApi } from '@/lib/api';
+import { authApi, usersApi, tenantsApi } from '@/lib/api';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -28,9 +50,26 @@ const navigation = [
 
 export function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [tenants, setTenants] = useState<any[]>([]);
+  const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
+  const [newWorkspace, setNewWorkspace] = useState({ name: '', slug: '' });
+  const [creatingWorkspace, setCreatingWorkspace] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileForm, setProfileForm] = useState({ firstName: '', lastName: '' });
+  const [savingProfile, setSavingProfile] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, tenant, logout, refreshToken } = useAuthStore();
+  const { user, tenant, logout, refreshToken, setTokens, setTenant, setUser } = useAuthStore();
+
+  useEffect(() => {
+    usersApi.getTenants().then((data) => setTenants(data)).catch(() => {});
+  }, [tenant?.id]);
+
+  useEffect(() => {
+    if (user) {
+      setProfileForm({ firstName: user.firstName, lastName: user.lastName });
+    }
+  }, [user]);
 
   const handleLogout = async () => {
     if (refreshToken) {
@@ -42,6 +81,59 @@ export function DashboardLayout() {
     }
     logout();
     navigate('/login');
+  };
+
+  const handleSwitchTenant = async (tenantId: string) => {
+    if (tenantId === tenant?.id) return;
+    try {
+      const tokens = await tenantsApi.switchTenant(tenantId);
+      setTokens(tokens.accessToken, tokens.refreshToken);
+      const selectedMembership = tenants.find((m) => m.tenant?.id === tenantId);
+      if (selectedMembership?.tenant) {
+        setTenant(selectedMembership.tenant);
+      }
+      navigate('/dashboard');
+    } catch {
+      // Ignore errors
+    }
+  };
+
+  const handleCreateWorkspace = async () => {
+    if (!newWorkspace.name || !newWorkspace.slug) return;
+    setCreatingWorkspace(true);
+    try {
+      const created = await tenantsApi.create(newWorkspace);
+      const tokens = await tenantsApi.switchTenant(created.id);
+      setTokens(tokens.accessToken, tokens.refreshToken);
+      setTenant({ id: created.id, name: created.name, slug: created.slug });
+      setCreateWorkspaceOpen(false);
+      setNewWorkspace({ name: '', slug: '' });
+      navigate('/dashboard');
+    } catch {
+      // Ignore errors
+    } finally {
+      setCreatingWorkspace(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!profileForm.firstName || !profileForm.lastName) return;
+    setSavingProfile(true);
+    try {
+      const updated = await usersApi.updateProfile(profileForm);
+      setUser({
+        id: updated.id,
+        email: updated.email,
+        firstName: updated.firstName,
+        lastName: updated.lastName,
+        avatarUrl: updated.avatarUrl,
+      });
+      setProfileOpen(false);
+    } catch {
+      // Ignore errors
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   const initials = user
@@ -86,8 +178,39 @@ export function DashboardLayout() {
 
           {/* Tenant selector */}
           <div className="px-4 py-3 border-b">
-            <p className="text-xs text-muted-foreground">Workspace</p>
-            <p className="font-medium truncate">{tenant?.name}</p>
+            <p className="text-xs text-muted-foreground mb-1">Workspace</p>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-gray-100 transition-colors">
+                  <span className="font-medium truncate">{tenant?.name}</span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {tenants.map((membership) => (
+                  <DropdownMenuItem
+                    key={membership.tenant?.id || membership.tenantId}
+                    onClick={() => handleSwitchTenant(membership.tenant?.id || membership.tenantId)}
+                    className="cursor-pointer"
+                  >
+                    <span className="flex-1 truncate">{membership.tenant?.name}</span>
+                    {(membership.tenant?.id || membership.tenantId) === tenant?.id && (
+                      <Check className="ml-2 h-4 w-4 text-primary" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setCreateWorkspaceOpen(true)}
+                  className="cursor-pointer"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create workspace
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Navigation */}
@@ -114,23 +237,44 @@ export function DashboardLayout() {
 
           {/* User menu */}
           <div className="border-t p-4">
-            <div className="flex items-center space-x-3">
-              <Avatar>
-                <AvatarImage src={user?.avatarUrl} />
-                <AvatarFallback>{initials}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
-                  {user?.firstName} {user?.lastName}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {user?.email}
-                </p>
-              </div>
-              <Button variant="ghost" size="icon" onClick={handleLogout}>
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex w-full items-center space-x-3 rounded-md p-1 hover:bg-gray-100 transition-colors">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user?.avatarUrl} />
+                    <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="text-sm font-medium truncate">
+                      {user?.firstName} {user?.lastName}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {user?.email}
+                    </p>
+                  </div>
+                  <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" side="top" className="w-56">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setProfileOpen(true)}
+                  className="cursor-pointer"
+                >
+                  <UserIcon className="mr-2 h-4 w-4" />
+                  Edit Profile
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="cursor-pointer text-red-600 focus:text-red-600"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </aside>
@@ -158,6 +302,128 @@ export function DashboardLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Create Workspace Dialog */}
+      <Dialog open={createWorkspaceOpen} onOpenChange={setCreateWorkspaceOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Workspace</DialogTitle>
+            <DialogDescription>
+              Create a new workspace to organize your social accounts and team.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="workspace-name">Name</Label>
+              <Input
+                id="workspace-name"
+                placeholder="My Company"
+                value={newWorkspace.name}
+                onChange={(e) =>
+                  setNewWorkspace((prev) => ({
+                    ...prev,
+                    name: e.target.value,
+                    slug: e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9]+/g, '-')
+                      .replace(/^-|-$/g, ''),
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="workspace-slug">Slug</Label>
+              <Input
+                id="workspace-slug"
+                placeholder="my-company"
+                value={newWorkspace.slug}
+                onChange={(e) =>
+                  setNewWorkspace((prev) => ({ ...prev, slug: e.target.value }))
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                URL-friendly identifier. Only lowercase letters, numbers, and hyphens.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCreateWorkspaceOpen(false)}
+              disabled={creatingWorkspace}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateWorkspace}
+              disabled={creatingWorkspace || !newWorkspace.name || !newWorkspace.slug}
+            >
+              {creatingWorkspace ? 'Creating...' : 'Create'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Profile Dialog */}
+      <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+            <DialogDescription>
+              Update your personal information.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-center space-x-4">
+              <Avatar className="h-16 w-16">
+                <AvatarImage src={user?.avatarUrl} />
+                <AvatarFallback className="text-lg">{initials}</AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="text-sm font-medium">{user?.email}</p>
+                <p className="text-xs text-muted-foreground">
+                  Email cannot be changed
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-first-name">First Name</Label>
+              <Input
+                id="profile-first-name"
+                value={profileForm.firstName}
+                onChange={(e) =>
+                  setProfileForm((prev) => ({ ...prev, firstName: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-last-name">Last Name</Label>
+              <Input
+                id="profile-last-name"
+                value={profileForm.lastName}
+                onChange={(e) =>
+                  setProfileForm((prev) => ({ ...prev, lastName: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setProfileOpen(false)}
+              disabled={savingProfile}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveProfile}
+              disabled={savingProfile || !profileForm.firstName || !profileForm.lastName}
+            >
+              {savingProfile ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
