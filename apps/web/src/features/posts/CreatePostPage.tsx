@@ -204,6 +204,17 @@ export function CreatePostPage() {
       if (post.socialAccountId) {
         setSelectedAccounts([post.socialAccountId]);
       }
+      // Load existing media URLs
+      if (post.mediaUrls && post.mediaUrls.length > 0) {
+        const existingMedia: MediaFile[] = post.mediaUrls.map((url: string, index: number) => ({
+          id: `existing-${index}`,
+          file: null as unknown as File, // Existing URLs don't have File objects
+          preview: url,
+          type: url.includes('video') || url.endsWith('.mp4') || url.endsWith('.mov') ? 'video' : 'image',
+          altText: '',
+        }));
+        setMediaFiles(existingMedia);
+      }
     }
   }, [postQuery.data, setValue]);
 
@@ -223,15 +234,21 @@ export function CreatePostPage() {
       return;
     }
 
+    // Collect media URLs from uploaded files (using data URLs for now)
+    // In production, you would upload these files to a storage service and get actual URLs
+    const mediaUrls = mediaFiles.map((m) => m.preview);
+
     if (isEditMode) {
       updateMutation.mutate({
         contentText: data.contentText,
+        mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
         scheduledAt: data.scheduledAt || undefined,
       });
     } else {
       createMutation.mutate({
         socialAccountIds: selectedAccounts,
         contentText: data.contentText,
+        mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
         scheduledAt: data.scheduledAt || undefined,
       });
     }
@@ -249,10 +266,14 @@ export function CreatePostPage() {
       return;
     }
 
+    // Collect media URLs from uploaded files
+    const mediaUrls = mediaFiles.map((m) => m.preview);
+
     if (isEditMode) {
       // Update existing post as draft
       updateMutation.mutate({
         contentText,
+        mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
         status: 'DRAFT',
       });
     } else {
@@ -268,6 +289,7 @@ export function CreatePostPage() {
       createMutation.mutate({
         socialAccountIds: selectedAccounts,
         contentText,
+        mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
         // No scheduledAt means it will be saved as DRAFT
       });
     }
