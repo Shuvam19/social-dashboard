@@ -5,9 +5,11 @@ import {
   IsString,
   IsDateString,
   IsUUID,
+  IsEnum,
   ArrayMinSize,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PostType } from '@prisma/client';
 
 export class CreatePostDto {
   @ApiProperty({
@@ -37,6 +39,15 @@ export class CreatePostDto {
   @IsArray()
   @IsString({ each: true })
   mediaUrls?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Type of post: TEXT, PHOTO, VIDEO, or REEL',
+    enum: PostType,
+    example: 'TEXT',
+  })
+  @IsOptional()
+  @IsEnum(PostType)
+  postType?: PostType;
 
   @ApiPropertyOptional({
     description: 'Schedule post for later (ISO 8601 format)',

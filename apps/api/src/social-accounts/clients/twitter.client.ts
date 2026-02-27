@@ -115,7 +115,7 @@ export class TwitterClient implements PlatformClient {
     };
   }
 
-  async publishPost(accessToken: string, content: string): Promise<PostResult> {
+  async publishPost(accessToken: string, content: string, mediaUrls?: string[], postType?: string): Promise<PostResult> {
     const response = await fetch(`${this.baseUrl}/tweets`, {
       method: 'POST',
       headers: {

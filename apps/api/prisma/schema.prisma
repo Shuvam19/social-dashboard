@@ -137,6 +137,7 @@ model Post {
 
   contentText String   @map("content_text")
   mediaUrls   String[] @map("media_urls")
+  postType    PostType @default(TEXT) @map("post_type")
 
   status      PostStatus @default(DRAFT)
   scheduledAt DateTime?  @map("scheduled_at")
@@ -168,6 +169,13 @@ enum PostStatus {
   PUBLISHING
   PUBLISHED
   FAILED
+}
+
+enum PostType {
+  TEXT
+  PHOTO
+  VIDEO
+  REEL
 }
 
 // ============== Interaction Models ==============

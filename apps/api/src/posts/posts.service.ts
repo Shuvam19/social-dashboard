@@ -19,7 +19,7 @@ export class PostsService {
   ) {}
 
   async create(tenantId: string, createPostDto: CreatePostDto) {
-    const { socialAccountIds, contentText, mediaUrls, scheduledAt } = createPostDto;
+    const { socialAccountIds, contentText, mediaUrls, scheduledAt, postType } = createPostDto;
 
     // Validate all social accounts belong to the tenant
     const accounts = await this.prisma.socialAccount.findMany({
@@ -43,6 +43,7 @@ export class PostsService {
             socialAccountId,
             contentText,
             mediaUrls: mediaUrls || [],
+            postType: postType || 'TEXT',
             status: scheduledAt ? PostStatus.SCHEDULED : PostStatus.DRAFT,
             scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
           },
@@ -171,6 +172,7 @@ export class PostsService {
         tokens.accessToken,
         post.contentText,
         post.mediaUrls,
+        post.postType,
       );
 
       // Update post with success

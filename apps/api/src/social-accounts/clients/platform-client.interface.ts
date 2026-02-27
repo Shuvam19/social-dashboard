@@ -41,11 +41,12 @@ export interface PlatformClient {
   getUserProfile(accessToken: string): Promise<UserProfile>;
 
   /**
-   * Publish a text post
+   * Publish a post (text, photo, video, or reel)
    */
   publishPost(
     accessToken: string,
     content: string,
     mediaUrls?: string[],
+    postType?: string,
   ): Promise<PostResult>;
 }

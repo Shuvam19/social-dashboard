@@ -111,7 +111,7 @@ export class PinterestClient implements PlatformClient {
     };
   }
 
-  async publishPost(accessToken: string, content: string): Promise<PostResult> {
+  async publishPost(accessToken: string, content: string, mediaUrls?: string[], postType?: string): Promise<PostResult> {
     // Pinterest requires an image for pins
     // This is a placeholder - actual implementation would need board_id and media
     throw new Error(

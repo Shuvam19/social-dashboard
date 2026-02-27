@@ -140,6 +140,7 @@ export function CreatePostPage() {
   const [firstCommentEnabled, setFirstCommentEnabled] = useState(false);
   const [createAsThread, setCreateAsThread] = useState(false);
   const [postAsReel, setPostAsReel] = useState(false);
+  const [postAsFbReel, setPostAsFbReel] = useState(false);
 
   const accountsQuery = useQuery({
     queryKey: ['social-accounts'],
@@ -178,7 +179,7 @@ export function CreatePostPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: { contentText?: string; mediaUrls?: string[]; scheduledAt?: string; status?: string }) =>
+    mutationFn: (data: { contentText?: string; mediaUrls?: string[]; postType?: string; scheduledAt?: string; status?: string }) =>
       postsApi.update(postId!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['posts'] });
@@ -215,6 +216,15 @@ export function CreatePostPage() {
         }));
         setMediaFiles(existingMedia);
       }
+      // Restore postType toggles
+      if (post.postType === 'REEL') {
+        const platform = post.socialAccount?.platform;
+        if (platform === 'FACEBOOK') {
+          setPostAsFbReel(true);
+        } else {
+          setPostAsReel(true);
+        }
+      }
     }
   }, [postQuery.data, setValue]);
 
@@ -222,6 +232,16 @@ export function CreatePostPage() {
     setSelectedAccounts((prev) =>
       prev.includes(accountId) ? prev.filter((id) => id !== accountId) : [...prev, accountId]
     );
+  };
+
+  // Derive postType from UI toggles and media state
+  const derivePostType = (): string | undefined => {
+    if (postAsReel || postAsFbReel) return 'REEL';
+    const hasVideo = mediaFiles.some((m) => m.type === 'video');
+    const hasImage = mediaFiles.some((m) => m.type === 'image');
+    if (hasVideo) return 'VIDEO';
+    if (hasImage) return 'PHOTO';
+    return 'TEXT';
   };
 
   const onSubmit = (data: CreatePostFormData) => {
@@ -237,11 +257,13 @@ export function CreatePostPage() {
     // Collect media URLs from uploaded files (using data URLs for now)
     // In production, you would upload these files to a storage service and get actual URLs
     const mediaUrls = mediaFiles.map((m) => m.preview);
+    const postType = derivePostType();
 
     if (isEditMode) {
       updateMutation.mutate({
         contentText: data.contentText,
         mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
+        postType,
         scheduledAt: data.scheduledAt || undefined,
       });
     } else {
@@ -249,6 +271,7 @@ export function CreatePostPage() {
         socialAccountIds: selectedAccounts,
         contentText: data.contentText,
         mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
+        postType,
         scheduledAt: data.scheduledAt || undefined,
       });
     }
@@ -268,12 +291,14 @@ export function CreatePostPage() {
 
     // Collect media URLs from uploaded files
     const mediaUrls = mediaFiles.map((m) => m.preview);
+    const postType = derivePostType();
 
     if (isEditMode) {
       // Update existing post as draft
       updateMutation.mutate({
         contentText,
         mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
+        postType,
         status: 'DRAFT',
       });
     } else {
@@ -290,6 +315,7 @@ export function CreatePostPage() {
         socialAccountIds: selectedAccounts,
         contentText,
         mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
+        postType,
         // No scheduledAt means it will be saved as DRAFT
       });
     }
@@ -968,6 +994,20 @@ export function CreatePostPage() {
                     </div>
                   </div>
                   <Toggle checked={createAsThread} onToggle={() => setCreateAsThread((v) => !v)} />
+                </div>
+
+                {/* Facebook: Reel */}
+                <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 border p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded bg-[#1877F2] flex items-center justify-center shrink-0">
+                      <span className="text-white text-[8px] font-bold leading-none">FB</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium">Post as Reel</p>
+                      <p className="text-[10px] text-muted-foreground">Publish video as a Facebook Reel</p>
+                    </div>
+                  </div>
+                  <Toggle checked={postAsFbReel} onToggle={() => setPostAsFbReel((v) => !v)} />
                 </div>
 
                 {/* Instagram: Reel */}

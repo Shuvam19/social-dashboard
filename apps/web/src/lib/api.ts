@@ -117,13 +117,13 @@ export const postsApi = {
 
   getById: (id: string) => apiClient<any>(`/posts/${id}`),
 
-  create: (data: { socialAccountIds: string[]; contentText: string; mediaUrls?: string[]; scheduledAt?: string }) =>
+  create: (data: { socialAccountIds: string[]; contentText: string; mediaUrls?: string[]; postType?: string; scheduledAt?: string }) =>
     apiClient('/posts', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
-  update: (id: string, data: { contentText?: string; mediaUrls?: string[]; scheduledAt?: string; status?: string }) =>
+  update: (id: string, data: { contentText?: string; mediaUrls?: string[]; postType?: string; scheduledAt?: string; status?: string }) =>
     apiClient(`/posts/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),

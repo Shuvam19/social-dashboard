@@ -118,7 +118,7 @@ export class TikTokClient implements PlatformClient {
     };
   }
 
-  async publishPost(accessToken: string, content: string): Promise<PostResult> {
+  async publishPost(accessToken: string, content: string, mediaUrls?: string[], postType?: string): Promise<PostResult> {
     // TikTok requires video content, text-only posts are not supported
     // This is a placeholder for the video publishing workflow
     throw new Error(

@@ -114,7 +114,7 @@ export class LinkedInClient implements PlatformClient {
     };
   }
 
-  async publishPost(accessToken: string, content: string): Promise<PostResult> {
+  async publishPost(accessToken: string, content: string, mediaUrls?: string[], postType?: string): Promise<PostResult> {
     // First get the user's URN
     const profileResponse = await fetch(`${this.apiUrl}/userinfo`, {
       headers: { Authorization: `Bearer ${accessToken}` },
