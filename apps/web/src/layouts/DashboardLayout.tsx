@@ -36,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/lib/store';
 import { authApi, usersApi, tenantsApi } from '@/lib/api';
 
@@ -59,6 +60,7 @@ export function DashboardLayout() {
   const [savingProfile, setSavingProfile] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, tenant, logout, refreshToken, setTokens, setTenant, setUser } = useAuthStore();
 
   useEffect(() => {
@@ -87,12 +89,17 @@ export function DashboardLayout() {
     if (tenantId === tenant?.id) return;
     try {
       const tokens = await tenantsApi.switchTenant(tenantId);
+      // 1. Update tokens first so subsequent API calls use the new token
       setTokens(tokens.accessToken, tokens.refreshToken);
+      // 2. Clear all cached query data so remounted components start fresh
+      queryClient.removeQueries();
+      // 3. Update tenant – this changes the Outlet key, forcing full remount
       const selectedMembership = tenants.find((m) => m.tenant?.id === tenantId);
       if (selectedMembership?.tenant) {
         setTenant(selectedMembership.tenant);
       }
-      navigate('/dashboard');
+      // 4. Navigate to dashboard
+      navigate('/dashboard', { replace: true });
     } catch {
       // Ignore errors
     }
@@ -105,10 +112,11 @@ export function DashboardLayout() {
       const created = await tenantsApi.create(newWorkspace);
       const tokens = await tenantsApi.switchTenant(created.id);
       setTokens(tokens.accessToken, tokens.refreshToken);
+      queryClient.removeQueries();
       setTenant({ id: created.id, name: created.name, slug: created.slug });
       setCreateWorkspaceOpen(false);
       setNewWorkspace({ name: '', slug: '' });
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch {
       // Ignore errors
     } finally {
@@ -299,7 +307,7 @@ export function DashboardLayout() {
 
         {/* Page content */}
         <main className="p-4 lg:p-6">
-          <Outlet />
+          <Outlet key={tenant?.id} />
         </main>
       </div>
 
