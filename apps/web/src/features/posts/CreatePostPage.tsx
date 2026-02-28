@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { socialAccountsApi, postsApi } from '@/lib/api';
+import { socialAccountsApi, postsApi, uploadsApi } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -141,6 +141,8 @@ export function CreatePostPage() {
   const [createAsThread, setCreateAsThread] = useState(false);
   const [postAsReel, setPostAsReel] = useState(false);
   const [postAsFbReel, setPostAsFbReel] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
 
   const accountsQuery = useQuery({
     queryKey: ['social-accounts'],
@@ -244,7 +246,48 @@ export function CreatePostPage() {
     return 'TEXT';
   };
 
-  const onSubmit = (data: CreatePostFormData) => {
+  /**
+   * Upload all media files to S3 via pre-signed URLs.
+   * Returns an array of public S3 file URLs.
+   * Skips files that are already uploaded (existing URLs from edit mode).
+   */
+  const uploadMediaToS3 = async (): Promise<string[]> => {
+    const filesToUpload = mediaFiles.filter((m) => m.file && !m.id.startsWith('existing-'));
+    const existingUrls = mediaFiles
+      .filter((m) => m.id.startsWith('existing-'))
+      .map((m) => m.preview);
+
+    if (filesToUpload.length === 0) return existingUrls;
+
+    setIsUploading(true);
+    setUploadProgress({ current: 0, total: filesToUpload.length });
+
+    try {
+      const uploadedUrls: string[] = [];
+
+      await Promise.all(
+        filesToUpload.map(async (media, index) => {
+          // 1. Get pre-signed URL from server
+          const { uploadUrl, fileUrl } = await uploadsApi.getPresignedUrl(
+            media.file.name,
+            media.file.type,
+          );
+
+          // 2. Upload file directly to S3
+          await uploadsApi.uploadFileToS3(uploadUrl, media.file);
+
+          uploadedUrls.push(fileUrl);
+          setUploadProgress((prev) => ({ ...prev, current: prev.current + 1 }));
+        }),
+      );
+
+      return [...existingUrls, ...uploadedUrls];
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const onSubmit = async (data: CreatePostFormData) => {
     if (!isEditMode && selectedAccounts.length === 0) {
       toast({
         variant: 'destructive',
@@ -254,30 +297,37 @@ export function CreatePostPage() {
       return;
     }
 
-    // Collect media URLs from uploaded files (using data URLs for now)
-    // In production, you would upload these files to a storage service and get actual URLs
-    const mediaUrls = mediaFiles.map((m) => m.preview);
-    const postType = derivePostType();
+    try {
+      // Upload media files to S3 and get public URLs
+      const mediaUrls = mediaFiles.length > 0 ? await uploadMediaToS3() : [];
+      const postType = derivePostType();
 
-    if (isEditMode) {
-      updateMutation.mutate({
-        contentText: data.contentText,
-        mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
-        postType,
-        scheduledAt: data.scheduledAt || undefined,
-      });
-    } else {
-      createMutation.mutate({
-        socialAccountIds: selectedAccounts,
-        contentText: data.contentText,
-        mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
-        postType,
-        scheduledAt: data.scheduledAt || undefined,
+      if (isEditMode) {
+        updateMutation.mutate({
+          contentText: data.contentText,
+          mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
+          postType,
+          scheduledAt: data.scheduledAt || undefined,
+        });
+      } else {
+        createMutation.mutate({
+          socialAccountIds: selectedAccounts,
+          contentText: data.contentText,
+          mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
+          postType,
+          scheduledAt: data.scheduledAt || undefined,
+        });
+      }
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Upload failed',
+        description: error.message || 'Failed to upload media files.',
       });
     }
   };
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
     const contentText = watch('contentText');
 
     if (!contentText) {
@@ -289,34 +339,42 @@ export function CreatePostPage() {
       return;
     }
 
-    // Collect media URLs from uploaded files
-    const mediaUrls = mediaFiles.map((m) => m.preview);
-    const postType = derivePostType();
+    try {
+      // Upload media files to S3 and get public URLs
+      const mediaUrls = mediaFiles.length > 0 ? await uploadMediaToS3() : [];
+      const postType = derivePostType();
 
-    if (isEditMode) {
-      // Update existing post as draft
-      updateMutation.mutate({
-        contentText,
-        mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
-        postType,
-        status: 'DRAFT',
-      });
-    } else {
-      // Create new post as draft
-      if (selectedAccounts.length === 0) {
-        toast({
-          variant: 'destructive',
-          title: 'No accounts selected',
-          description: 'Please select at least one account to save draft.',
+      if (isEditMode) {
+        // Update existing post as draft
+        updateMutation.mutate({
+          contentText,
+          mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
+          postType,
+          status: 'DRAFT',
         });
-        return;
+      } else {
+        // Create new post as draft
+        if (selectedAccounts.length === 0) {
+          toast({
+            variant: 'destructive',
+            title: 'No accounts selected',
+            description: 'Please select at least one account to save draft.',
+          });
+          return;
+        }
+        createMutation.mutate({
+          socialAccountIds: selectedAccounts,
+          contentText,
+          mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
+          postType,
+          // No scheduledAt means it will be saved as DRAFT
+        });
       }
-      createMutation.mutate({
-        socialAccountIds: selectedAccounts,
-        contentText,
-        mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
-        postType,
-        // No scheduledAt means it will be saved as DRAFT
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Upload failed',
+        description: error.message || 'Failed to upload media files.',
       });
     }
   };
@@ -764,11 +822,16 @@ export function CreatePostPage() {
                     />
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    {isUploading && (
+                      <span className="text-xs text-muted-foreground animate-pulse">
+                        Uploading {uploadProgress.current}/{uploadProgress.total}…
+                      </span>
+                    )}
                     <Button type="button" variant="outline" onClick={() => navigate('/posts')}>
                       Cancel
                     </Button>
-                    <Button type="button" variant="outline" className="gap-1.5" onClick={handleSaveDraft} disabled={createMutation.isPending || updateMutation.isPending}>
-                      {(createMutation.isPending || updateMutation.isPending) ? (
+                    <Button type="button" variant="outline" className="gap-1.5" onClick={handleSaveDraft} disabled={isUploading || createMutation.isPending || updateMutation.isPending}>
+                      {(isUploading || createMutation.isPending || updateMutation.isPending) ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <FileText className="h-4 w-4" />
@@ -777,15 +840,15 @@ export function CreatePostPage() {
                     </Button>
                     <Button
                       type="submit"
-                      disabled={createMutation.isPending || updateMutation.isPending || (!isEditMode && selectedAccounts.length === 0) || isOverLimit}
+                      disabled={isUploading || createMutation.isPending || updateMutation.isPending || (!isEditMode && selectedAccounts.length === 0) || isOverLimit}
                       className="gap-1.5"
                     >
-                      {(createMutation.isPending || updateMutation.isPending) ? (
+                      {(isUploading || createMutation.isPending || updateMutation.isPending) ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <Send className="h-4 w-4" />
                       )}
-                      {isEditMode ? 'Update Post' : 'Publish Now'}
+                      {isUploading ? 'Uploading…' : isEditMode ? 'Update Post' : 'Publish Now'}
                     </Button>
                   </div>
                 </div>

@@ -297,6 +297,28 @@ export const adsApi = {
     apiClient<any[]>(`/ads/campaigns/${campaignId}/ads`),
 };
 
+// Uploads API (pre-signed S3 uploads)
+export const uploadsApi = {
+  getPresignedUrl: (fileName: string, contentType: string) =>
+    apiClient<{ uploadUrl: string; fileUrl: string }>('/uploads/presigned-url', {
+      method: 'POST',
+      body: JSON.stringify({ fileName, contentType }),
+    }),
+
+  uploadFileToS3: async (uploadUrl: string, file: File): Promise<void> => {
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`S3 upload failed with status ${response.status}`);
+    }
+  },
+};
+
 // Analytics API
 export const analyticsApi = {
   getSummary: (from?: string, to?: string) => {
