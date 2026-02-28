@@ -1,6 +1,8 @@
 import {
   Platform,
   Role,
+  Permission,
+  AuditAction,
   PostStatus,
   InteractionType,
   CampaignStatus,
@@ -38,6 +40,9 @@ export interface AuthResponseDto {
   accessToken: string;
   refreshToken: string;
   user: UserDto;
+  tenant: TenantDto;
+  role: Role;
+  permissions: Permission[];
 }
 
 // ============== Tenant DTOs ==============
@@ -61,8 +66,16 @@ export interface TenantMembershipDto {
   userId: string;
   tenantId: string;
   role: Role;
+  permissions?: MemberPermissionDto[];
   user?: UserDto;
   tenant?: TenantDto;
+  createdAt: string;
+}
+
+export interface MemberPermissionDto {
+  id: string;
+  membershipId: string;
+  permission: Permission;
   createdAt: string;
 }
 
@@ -107,6 +120,13 @@ export interface PostDto {
   platformPostId?: string;
   platformPostUrl?: string;
   errorMessage?: string;
+  // Approval workflow
+  createdById?: string;
+  createdBy?: UserDto;
+  reviewedById?: string;
+  reviewedBy?: UserDto;
+  reviewedAt?: string;
+  reviewNote?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -348,4 +368,37 @@ export interface OAuthStateDto {
 export interface OAuthCallbackDto {
   code: string;
   state: string;
+}
+
+// ============== Audit Log DTOs ==============
+
+export interface AuditLogDto {
+  id: string;
+  tenantId: string;
+  userId: string;
+  action: AuditAction;
+  entityType: string;
+  entityId?: string;
+  metadata?: Record<string, unknown>;
+  ipAddress?: string;
+  createdAt: string;
+}
+
+export interface AuditLogsResponseDto {
+  logs: AuditLogDto[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+// ============== Invite Member DTOs ==============
+
+export interface InviteMemberRequestDto {
+  email: string;
+  role: Role;
+  permissions?: Permission[];
+}
+
+export interface UpdateMemberPermissionsDto {
+  permissions: Permission[];
 }

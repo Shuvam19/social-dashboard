@@ -19,11 +19,12 @@ export class RolesGuard implements CanActivate {
 
     const { user } = context.switchToHttp().getRequest();
 
-    // Role hierarchy: ADMIN > EDITOR > VIEWER
+    // Role hierarchy: OWNER > PUBLISHER > EDITOR > ANALYST
     const roleHierarchy: Record<Role, number> = {
-      ADMIN: 3,
+      OWNER: 4,
+      PUBLISHER: 3,
       EDITOR: 2,
-      VIEWER: 1,
+      ANALYST: 1,
     };
 
     const userRoleLevel = roleHierarchy[user.role as Role] || 0;

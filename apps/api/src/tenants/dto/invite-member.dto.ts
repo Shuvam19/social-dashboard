@@ -1,6 +1,6 @@
-import { IsEmail, IsNotEmpty, IsEnum } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
+import { IsEmail, IsNotEmpty, IsEnum, IsOptional, IsArray } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Role, Permission } from '@prisma/client';
 
 export class InviteMemberDto {
   @ApiProperty({ example: 'newmember@example.com' })
@@ -11,4 +11,14 @@ export class InviteMemberDto {
   @ApiProperty({ enum: Role, example: 'EDITOR' })
   @IsEnum(Role)
   role: Role;
+
+  @ApiPropertyOptional({
+    description: 'Fine-grained permissions. If omitted, defaults for the role are used.',
+    enum: Permission,
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsEnum(Permission, { each: true })
+  permissions?: Permission[];
 }

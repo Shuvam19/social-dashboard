@@ -46,6 +46,8 @@ export function RegisterPage() {
         tenant: data.tenant,
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
+        role: data.role,
+        permissions: data.permissions,
       });
       toast({
         title: 'Welcome!',

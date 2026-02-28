@@ -7,11 +7,38 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
+import { Permission, Role } from '@prisma/client';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../config/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload, AuthTokens, AuthResponse } from './interfaces/auth.interface';
+
+// Default permissions for each role
+export const DEFAULT_PERMISSIONS: Record<Role, Permission[]> = {
+  OWNER: Object.values(Permission) as Permission[], // All permissions
+  PUBLISHER: [
+    Permission.PUBLISH_YOUTUBE,
+    Permission.PUBLISH_FACEBOOK,
+    Permission.PUBLISH_INSTAGRAM,
+    Permission.PUBLISH_LINKEDIN,
+    Permission.PUBLISH_TWITTER,
+    Permission.PUBLISH_TIKTOK,
+    Permission.PUBLISH_PINTEREST,
+    Permission.EDIT_CAPTIONS,
+    Permission.SCHEDULE,
+    Permission.VIEW_ANALYTICS,
+    Permission.APPROVE_POSTS,
+    Permission.MANAGE_CAMPAIGNS,
+  ],
+  EDITOR: [
+    Permission.EDIT_CAPTIONS,
+    Permission.VIEW_ANALYTICS,
+  ],
+  ANALYST: [
+    Permission.VIEW_ANALYTICS,
+  ],
+};
 
 @Injectable()
 export class AuthService {
@@ -50,17 +77,26 @@ export class AuthService {
         },
       });
 
-      // Create membership with ADMIN role
-      await tx.tenantMembership.create({
+      // Create membership with OWNER role
+      const membership = await tx.tenantMembership.create({
         data: {
           userId: user.id,
           tenantId: tenant.id,
-          role: 'ADMIN',
+          role: 'OWNER',
           isDefault: true,
         },
       });
 
-      return { user, tenant };
+      // Seed default permissions for OWNER
+      const ownerPermissions = DEFAULT_PERMISSIONS.OWNER;
+      await tx.memberPermission.createMany({
+        data: ownerPermissions.map((permission) => ({
+          membershipId: membership.id,
+          permission,
+        })),
+      });
+
+      return { user, tenant, permissions: ownerPermissions };
     });
 
     const tokens = await this.generateTokens(result.user.id, result.tenant.id);
@@ -78,6 +114,8 @@ export class AuthService {
         name: result.tenant.name,
         slug: result.tenant.slug,
       },
+      role: 'OWNER',
+      permissions: result.permissions as string[],
       ...tokens,
     };
   }
@@ -85,10 +123,10 @@ export class AuthService {
   async login(loginDto: LoginDto): Promise<AuthResponse> {
     const user = await this.validateUser(loginDto.email, loginDto.password);
 
-    // Get default tenant
+    // Get default tenant with permissions
     const membership = await this.prisma.tenantMembership.findFirst({
       where: { userId: user.id, isDefault: true },
-      include: { tenant: true },
+      include: { tenant: true, permissions: true },
     });
 
     if (!membership) {
@@ -110,6 +148,8 @@ export class AuthService {
         name: membership.tenant.name,
         slug: membership.tenant.slug,
       },
+      role: membership.role,
+      permissions: membership.permissions.map((p) => p.permission),
       ...tokens,
     };
   }
@@ -191,18 +231,24 @@ export class AuthService {
     });
   }
 
-  async switchTenant(userId: string, tenantId: string): Promise<AuthTokens> {
+  async switchTenant(userId: string, tenantId: string): Promise<AuthTokens & { role: string; permissions: string[] }> {
     // Verify user has access to tenant
     const membership = await this.prisma.tenantMembership.findUnique({
       where: {
         userId_tenantId: { userId, tenantId },
       },
+      include: { permissions: true },
     });
 
     if (!membership) {
       throw new UnauthorizedException('No access to this workspace');
     }
 
-    return this.generateTokens(userId, tenantId);
+    const tokens = await this.generateTokens(userId, tenantId);
+    return {
+      ...tokens,
+      role: membership.role,
+      permissions: membership.permissions.map((p) => p.permission),
+    };
   }
 }

@@ -24,8 +24,10 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
-  memberships   TenantMembership[]
-  refreshTokens RefreshToken[]
+  memberships    TenantMembership[]
+  refreshTokens  RefreshToken[]
+  createdPosts   Post[]        @relation("PostCreator")
+  reviewedPosts  Post[]        @relation("PostReviewer")
 
   @@map("users")
 }
@@ -52,23 +54,96 @@ model TenantMembership {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
   tenantId  String   @map("tenant_id")
-  role      Role     @default(VIEWER)
+  role      Role     @default(ANALYST)
   isDefault Boolean  @default(false) @map("is_default")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  permissions MemberPermission[]
 
   @@unique([userId, tenantId])
   @@map("tenant_memberships")
 }
 
 enum Role {
-  ADMIN
+  OWNER
+  PUBLISHER
   EDITOR
-  VIEWER
+  ANALYST
+}
+
+// ============== Fine-Grained Permissions ==============
+
+model MemberPermission {
+  id           String   @id @default(uuid())
+  membershipId String   @map("membership_id")
+  permission   Permission
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  membership TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, permission])
+  @@index([membershipId])
+  @@map("member_permissions")
+}
+
+enum Permission {
+  CONNECT_TOKENS
+  PUBLISH_YOUTUBE
+  PUBLISH_FACEBOOK
+  PUBLISH_INSTAGRAM
+  PUBLISH_LINKEDIN
+  PUBLISH_TWITTER
+  PUBLISH_TIKTOK
+  PUBLISH_PINTEREST
+  EDIT_CAPTIONS
+  SCHEDULE
+  MANAGE_MEMBERS
+  VIEW_ANALYTICS
+  APPROVE_POSTS
+  MANAGE_CAMPAIGNS
+}
+
+// ============== Audit Log ==============
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  tenantId   String      @map("tenant_id")
+  userId     String      @map("user_id")
+  action     AuditAction
+  entityType String      @map("entity_type") // Post, SocialAccount, Tenant, TenantMembership
+  entityId   String?     @map("entity_id")
+  metadata   Json?       // API response, changed fields, URLs, etc.
+  ipAddress  String?     @map("ip_address")
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+enum AuditAction {
+  STORE_LINKED
+  STORE_UNLINKED
+  DEFAULTS_CHANGED
+  POST_CREATED
+  POST_UPDATED
+  POST_PUBLISHED
+  POST_SUBMITTED_FOR_REVIEW
+  POST_APPROVED
+  POST_REJECTED
+  POST_SCHEDULED
+  POST_DELETED
+  MEMBER_INVITED
+  MEMBER_ROLE_CHANGED
+  MEMBER_REMOVED
+  MEMBER_PERMISSIONS_CHANGED
+  TOKEN_CONNECTED
 }
 
 // ============== Auth Models ==============
@@ -148,12 +223,20 @@ model Post {
   platformPostUrl String? @map("platform_post_url")
   errorMessage    String? @map("error_message")
 
+  // Approval workflow
+  createdById  String?   @map("created_by_id")
+  reviewedById String?   @map("reviewed_by_id")
+  reviewedAt   DateTime? @map("reviewed_at")
+  reviewNote   String?   @map("review_note")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
   tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  createdBy     User?         @relation("PostCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewedBy    User?         @relation("PostReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   interactions  Interaction[]
   campaigns     AdCampaign[]
   ads           Ad[]
@@ -165,6 +248,8 @@ model Post {
 
 enum PostStatus {
   DRAFT
+  PENDING_REVIEW
+  APPROVED
   SCHEDULED
   PUBLISHING
   PUBLISHED

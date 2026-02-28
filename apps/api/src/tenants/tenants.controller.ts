@@ -16,13 +16,16 @@ import { InviteMemberDto } from './dto/invite-member.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/interfaces/auth.interface';
+import { Permission } from '@prisma/client';
 
 @ApiTags('tenants')
 @Controller('tenants')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class TenantsController {
   constructor(private tenantsService: TenantsService) {}
@@ -43,13 +46,13 @@ export class TenantsController {
   }
 
   @Patch('current')
-  @Roles('ADMIN')
+  @Roles('OWNER')
   @ApiOperation({ summary: 'Update current tenant' })
   async update(
     @CurrentUser() user: JwtPayload,
     @Body() updateTenantDto: UpdateTenantDto,
   ) {
-    return this.tenantsService.update(user.tenantId, updateTenantDto);
+    return this.tenantsService.update(user.tenantId, updateTenantDto, user.sub);
   }
 
   @Get('current/members')
@@ -59,17 +62,19 @@ export class TenantsController {
   }
 
   @Post('current/members')
-  @Roles('ADMIN')
+  @Roles('OWNER')
+  @RequirePermissions('MANAGE_MEMBERS')
   @ApiOperation({ summary: 'Invite a member to current tenant' })
   async inviteMember(
     @CurrentUser() user: JwtPayload,
     @Body() inviteMemberDto: InviteMemberDto,
   ) {
-    return this.tenantsService.inviteMember(user.tenantId, inviteMemberDto);
+    return this.tenantsService.inviteMember(user.tenantId, inviteMemberDto, user.sub);
   }
 
   @Patch('current/members/:memberId')
-  @Roles('ADMIN')
+  @Roles('OWNER')
+  @RequirePermissions('MANAGE_MEMBERS')
   @ApiOperation({ summary: 'Update member role' })
   async updateMemberRole(
     @CurrentUser() user: JwtPayload,
@@ -80,11 +85,30 @@ export class TenantsController {
       user.tenantId,
       memberId,
       updateMemberRoleDto.role,
+      user.sub,
+    );
+  }
+
+  @Patch('current/members/:memberId/permissions')
+  @Roles('OWNER')
+  @RequirePermissions('MANAGE_MEMBERS')
+  @ApiOperation({ summary: 'Update member permissions' })
+  async updateMemberPermissions(
+    @CurrentUser() user: JwtPayload,
+    @Param('memberId') memberId: string,
+    @Body('permissions') permissions: Permission[],
+  ) {
+    return this.tenantsService.updateMemberPermissions(
+      user.tenantId,
+      memberId,
+      permissions,
+      user.sub,
     );
   }
 
   @Delete('current/members/:memberId')
-  @Roles('ADMIN')
+  @Roles('OWNER')
+  @RequirePermissions('MANAGE_MEMBERS')
   @ApiOperation({ summary: 'Remove a member from tenant' })
   async removeMember(
     @CurrentUser() user: JwtPayload,

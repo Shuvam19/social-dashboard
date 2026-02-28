@@ -1,6 +1,8 @@
 export interface JwtPayload {
   sub: string; // userId
   tenantId: string;
+  role?: string;
+  permissions?: string[];
   iat?: number;
   exp?: number;
 }
@@ -23,4 +25,6 @@ export interface AuthResponse extends AuthTokens {
     name: string;
     slug: string;
   };
+  role: string;
+  permissions: string[];
 }

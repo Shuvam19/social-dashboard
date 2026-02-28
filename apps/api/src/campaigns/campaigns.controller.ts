@@ -50,7 +50,7 @@ export class CampaignsController {
   }
 
   @Post()
-  @Roles('ADMIN', 'EDITOR')
+  @Roles('PUBLISHER')
   @ApiOperation({ summary: 'Create a new ad campaign' })
   async create(
     @CurrentUser() user: JwtPayload,

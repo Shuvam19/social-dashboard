@@ -5,14 +5,19 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../config/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { DEFAULT_PERMISSIONS } from '../auth/auth.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
-import { Role } from '@prisma/client';
+import { Role, Permission, AuditAction } from '@prisma/client';
 
 @Injectable()
 export class TenantsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditService: AuditService,
+  ) {}
 
   async create(userId: string, createTenantDto: CreateTenantDto) {
     // Check if slug is unique
@@ -29,13 +34,22 @@ export class TenantsService {
         data: createTenantDto,
       });
 
-      // Add creator as admin
-      await tx.tenantMembership.create({
+      // Add creator as OWNER
+      const membership = await tx.tenantMembership.create({
         data: {
           userId,
           tenantId: tenant.id,
-          role: 'ADMIN',
+          role: 'OWNER',
         },
+      });
+
+      // Seed default permissions for OWNER
+      const ownerPermissions = DEFAULT_PERMISSIONS.OWNER;
+      await tx.memberPermission.createMany({
+        data: ownerPermissions.map((permission) => ({
+          membershipId: membership.id,
+          permission,
+        })),
       });
 
       return tenant;
@@ -75,7 +89,7 @@ export class TenantsService {
     return tenant;
   }
 
-  async update(id: string, updateTenantDto: UpdateTenantDto) {
+  async update(id: string, updateTenantDto: UpdateTenantDto, userId?: string) {
     if (updateTenantDto.slug) {
       const existing = await this.prisma.tenant.findFirst({
         where: {
@@ -89,13 +103,26 @@ export class TenantsService {
       }
     }
 
-    return this.prisma.tenant.update({
+    const result = await this.prisma.tenant.update({
       where: { id },
       data: updateTenantDto,
     });
+
+    if (userId) {
+      this.auditService.log({
+        tenantId: id,
+        userId,
+        action: AuditAction.DEFAULTS_CHANGED,
+        entityType: 'Tenant',
+        entityId: id,
+        metadata: { changedFields: Object.keys(updateTenantDto) },
+      });
+    }
+
+    return result;
   }
 
-  async inviteMember(tenantId: string, inviteMemberDto: InviteMemberDto) {
+  async inviteMember(tenantId: string, inviteMemberDto: InviteMemberDto, invitedByUserId?: string) {
     const user = await this.prisma.user.findUnique({
       where: { email: inviteMemberDto.email },
     });
@@ -114,30 +141,162 @@ export class TenantsService {
       throw new ConflictException('User is already a member');
     }
 
-    return this.prisma.tenantMembership.create({
-      data: {
-        userId: user.id,
-        tenantId,
-        role: inviteMemberDto.role,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            avatarUrl: true,
+    // Determine permissions: use provided or defaults for role
+    const permissionsToSeed: Permission[] = inviteMemberDto.permissions?.length
+      ? inviteMemberDto.permissions
+      : DEFAULT_PERMISSIONS[inviteMemberDto.role] || [];
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const membership = await tx.tenantMembership.create({
+        data: {
+          userId: user.id,
+          tenantId,
+          role: inviteMemberDto.role,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+            },
           },
         },
-      },
+      });
+
+      // Seed permissions
+      if (permissionsToSeed.length > 0) {
+        await tx.memberPermission.createMany({
+          data: permissionsToSeed.map((permission) => ({
+            membershipId: membership.id,
+            permission,
+          })),
+        });
+      }
+
+      return membership;
     });
+
+    if (invitedByUserId) {
+      this.auditService.log({
+        tenantId,
+        userId: invitedByUserId,
+        action: AuditAction.MEMBER_INVITED,
+        entityType: 'TenantMembership',
+        entityId: result.id,
+        metadata: {
+          email: inviteMemberDto.email,
+          role: inviteMemberDto.role,
+          permissions: permissionsToSeed,
+        },
+      });
+    }
+
+    return result;
   }
 
-  async updateMemberRole(tenantId: string, memberId: string, role: Role) {
-    return this.prisma.tenantMembership.update({
+  async updateMemberRole(tenantId: string, memberId: string, role: Role, updatedByUserId?: string) {
+    const membership = await this.prisma.tenantMembership.findUnique({
       where: { id: memberId },
-      data: { role },
+    });
+
+    if (!membership) {
+      throw new NotFoundException('Membership not found');
+    }
+
+    const oldRole = membership.role;
+
+    // Update role and reset permissions to defaults for new role
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.tenantMembership.update({
+        where: { id: memberId },
+        data: { role },
+      });
+
+      // Remove old permissions and seed new defaults
+      await tx.memberPermission.deleteMany({
+        where: { membershipId: memberId },
+      });
+
+      const newPermissions = DEFAULT_PERMISSIONS[role] || [];
+      if (newPermissions.length > 0) {
+        await tx.memberPermission.createMany({
+          data: newPermissions.map((permission) => ({
+            membershipId: memberId,
+            permission,
+          })),
+        });
+      }
+
+      return updated;
+    });
+
+    if (updatedByUserId) {
+      this.auditService.log({
+        tenantId,
+        userId: updatedByUserId,
+        action: AuditAction.MEMBER_ROLE_CHANGED,
+        entityType: 'TenantMembership',
+        entityId: memberId,
+        metadata: { oldRole, newRole: role },
+      });
+    }
+
+    return result;
+  }
+
+  async updateMemberPermissions(
+    tenantId: string,
+    memberId: string,
+    permissions: Permission[],
+    updatedByUserId?: string,
+  ) {
+    const membership = await this.prisma.tenantMembership.findUnique({
+      where: { id: memberId },
+    });
+
+    if (!membership || membership.tenantId !== tenantId) {
+      throw new NotFoundException('Membership not found');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Remove all existing permissions
+      await tx.memberPermission.deleteMany({
+        where: { membershipId: memberId },
+      });
+
+      // Create new permissions
+      if (permissions.length > 0) {
+        await tx.memberPermission.createMany({
+          data: permissions.map((permission) => ({
+            membershipId: memberId,
+            permission,
+          })),
+        });
+      }
+    });
+
+    if (updatedByUserId) {
+      this.auditService.log({
+        tenantId,
+        userId: updatedByUserId,
+        action: AuditAction.MEMBER_PERMISSIONS_CHANGED,
+        entityType: 'TenantMembership',
+        entityId: memberId,
+        metadata: { permissions },
+      });
+    }
+
+    return this.prisma.tenantMembership.findUnique({
+      where: { id: memberId },
+      include: {
+        user: {
+          select: { id: true, email: true, firstName: true, lastName: true, avatarUrl: true },
+        },
+        permissions: true,
+      },
     });
   }
 
@@ -150,20 +309,31 @@ export class TenantsService {
       throw new NotFoundException('Membership not found');
     }
 
-    // Prevent removing yourself if you're the last admin
+    // Prevent removing yourself if you're the last owner
     if (membership.userId === currentUserId) {
-      const adminCount = await this.prisma.tenantMembership.count({
-        where: { tenantId, role: 'ADMIN' },
+      const ownerCount = await this.prisma.tenantMembership.count({
+        where: { tenantId, role: 'OWNER' },
       });
 
-      if (adminCount === 1 && membership.role === 'ADMIN') {
-        throw new ForbiddenException('Cannot remove the last admin');
+      if (ownerCount === 1 && membership.role === 'OWNER') {
+        throw new ForbiddenException('Cannot remove the last owner');
       }
     }
 
-    return this.prisma.tenantMembership.delete({
+    const result = await this.prisma.tenantMembership.delete({
       where: { id: memberId },
     });
+
+    this.auditService.log({
+      tenantId,
+      userId: currentUserId,
+      action: AuditAction.MEMBER_REMOVED,
+      entityType: 'TenantMembership',
+      entityId: memberId,
+      metadata: { removedUserId: membership.userId, role: membership.role },
+    });
+
+    return result;
   }
 
   async getMembers(tenantId: string) {
@@ -179,6 +349,7 @@ export class TenantsService {
             avatarUrl: true,
           },
         },
+        permissions: true,
       },
     });
   }

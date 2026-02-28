@@ -96,7 +96,7 @@ export class InteractionsController {
   }
 
   @Patch(':id/replied')
-  @Roles('ADMIN', 'EDITOR')
+  @Roles('EDITOR')
   @ApiOperation({ summary: 'Mark interaction as replied' })
   async markAsReplied(
     @CurrentUser() user: JwtPayload,
@@ -106,7 +106,7 @@ export class InteractionsController {
   }
 
   @Post(':id/reply')
-  @Roles('ADMIN', 'EDITOR')
+  @Roles('EDITOR')
   @ApiOperation({ summary: 'Reply to an interaction' })
   async reply(
     @CurrentUser() user: JwtPayload,
@@ -120,7 +120,7 @@ export class InteractionsController {
   }
 
   @Patch(':id/hide')
-  @Roles('ADMIN', 'EDITOR')
+  @Roles('EDITOR')
   @ApiOperation({ summary: 'Hide an interaction' })
   async hide(
     @CurrentUser() user: JwtPayload,
@@ -130,7 +130,7 @@ export class InteractionsController {
   }
 
   @Patch(':id/unhide')
-  @Roles('ADMIN', 'EDITOR')
+  @Roles('EDITOR')
   @ApiOperation({ summary: 'Unhide an interaction' })
   async unhide(
     @CurrentUser() user: JwtPayload,
@@ -140,7 +140,7 @@ export class InteractionsController {
   }
 
   @Delete(':id')
-  @Roles('ADMIN', 'EDITOR')
+  @Roles('EDITOR')
   @ApiOperation({ summary: 'Delete an interaction (soft delete)' })
   async delete(
     @CurrentUser() user: JwtPayload,

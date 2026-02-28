@@ -40,6 +40,8 @@ export function LoginPage() {
         tenant: data.tenant,
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
+        role: data.role,
+        permissions: data.permissions,
       });
       navigate('/dashboard');
     },

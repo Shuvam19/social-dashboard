@@ -17,6 +17,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { InboxModule } from './inbox/inbox.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { UploadsModule } from './uploads/uploads.module';
     WebhooksModule,
     InboxModule,
     UploadsModule,
+    AuditModule,
   ],
 })
 export class AppModule {}

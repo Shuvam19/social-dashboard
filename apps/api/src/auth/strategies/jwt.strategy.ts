@@ -18,7 +18,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: JwtPayload): Promise<JwtPayload & { role: string }> {
+  async validate(payload: JwtPayload): Promise<JwtPayload & { role: string; permissions: string[] }> {
     // Verify user exists and has access to tenant
     const membership = await this.prisma.tenantMembership.findUnique({
       where: {
@@ -29,6 +29,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       },
       include: {
         user: true,
+        permissions: true,
       },
     });
 
@@ -39,6 +40,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return {
       ...payload,
       role: membership.role,
+      permissions: membership.permissions.map((p) => p.permission),
     };
   }
 }

@@ -12,7 +12,9 @@ import { ConfigService } from '@nestjs/config';
 import { OAuthService } from './oauth.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/interfaces/auth.interface';
 import { Platform } from '@prisma/client';
@@ -26,8 +28,9 @@ export class OAuthController {
   ) {}
 
   @Get(':platform/authorize')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'EDITOR')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('OWNER')
+  @RequirePermissions('CONNECT_TOKENS')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get OAuth authorization URL for a platform' })
   async authorize(

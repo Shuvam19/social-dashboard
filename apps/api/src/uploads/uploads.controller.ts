@@ -21,7 +21,7 @@ export class UploadsController {
   constructor(private readonly s3Service: S3Service) {}
 
   @Post('presigned-url')
-  @Roles('ADMIN', 'EDITOR')
+  @Roles('EDITOR')
   @ApiOperation({
     summary: 'Generate a pre-signed URL for direct S3 upload',
     description:

@@ -134,6 +134,21 @@ export const postsApi = {
 
   publish: (id: string) =>
     apiClient(`/posts/${id}/publish`, { method: 'POST' }),
+
+  submitForReview: (id: string) =>
+    apiClient(`/posts/${id}/submit-review`, { method: 'POST' }),
+
+  approve: (id: string, note?: string) =>
+    apiClient(`/posts/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    }),
+
+  reject: (id: string, note: string) =>
+    apiClient(`/posts/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    }),
 };
 
 // Interactions API
@@ -223,17 +238,59 @@ export const tenantsApi = {
       body: JSON.stringify(data),
     }),
 
-  inviteMember: (data: { email: string; role: string }) =>
+  inviteMember: (data: { email: string; role: string; permissions?: string[] }) =>
     apiClient('/tenants/current/members', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
+  updateMemberRole: (memberId: string, role: string) =>
+    apiClient(`/tenants/current/members/${memberId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    }),
+
+  updateMemberPermissions: (memberId: string, permissions: string[]) =>
+    apiClient(`/tenants/current/members/${memberId}/permissions`, {
+      method: 'PATCH',
+      body: JSON.stringify({ permissions }),
+    }),
+
+  removeMember: (memberId: string) =>
+    apiClient(`/tenants/current/members/${memberId}`, { method: 'DELETE' }),
+
   switchTenant: (tenantId: string) =>
-    apiClient<{ accessToken: string; refreshToken: string }>('/auth/switch-tenant', {
+    apiClient<{ accessToken: string; refreshToken: string; role: string; permissions: string[] }>('/auth/switch-tenant', {
       method: 'POST',
       body: JSON.stringify({ tenantId }),
     }),
+};
+
+// Audit Logs API
+export const auditApi = {
+  getLogs: (filters?: {
+    action?: string;
+    entityType?: string;
+    entityId?: string;
+    userId?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, String(value));
+        }
+      });
+    }
+    const query = params.toString();
+    return apiClient<{ logs: any[]; total: number; limit: number; offset: number }>(
+      `/audit-logs${query ? `?${query}` : ''}`,
+    );
+  },
 };
 
 // Ads / Campaigns API

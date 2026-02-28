@@ -58,7 +58,7 @@ export class AdsController {
   }
 
   @Post('campaigns')
-  @Roles('ADMIN', 'EDITOR')
+  @Roles('PUBLISHER')
   @ApiOperation({ summary: 'Create a new ad campaign' })
   async create(
     @CurrentUser() user: JwtPayload,
@@ -68,7 +68,7 @@ export class AdsController {
   }
 
   @Patch('campaigns/:id/status')
-  @Roles('ADMIN', 'EDITOR')
+  @Roles('PUBLISHER')
   @ApiOperation({ summary: 'Update campaign status (activate, pause, etc.)' })
   async updateStatus(
     @CurrentUser() user: JwtPayload,
@@ -79,7 +79,7 @@ export class AdsController {
   }
 
   @Delete('campaigns/:id')
-  @Roles('ADMIN')
+  @Roles('OWNER')
   @ApiOperation({ summary: 'Delete a campaign' })
   async deleteCampaign(
     @CurrentUser() user: JwtPayload,
@@ -91,7 +91,7 @@ export class AdsController {
   // ============== Sync ==============
 
   @Post('campaigns/sync')
-  @Roles('ADMIN', 'EDITOR')
+  @Roles('PUBLISHER')
   @ApiOperation({ summary: 'Sync campaigns from Meta' })
   async syncCampaigns(
     @CurrentUser() user: JwtPayload,
@@ -103,7 +103,7 @@ export class AdsController {
   // ============== Boost ==============
 
   @Post('boost')
-  @Roles('ADMIN', 'EDITOR')
+  @Roles('PUBLISHER')
   @ApiOperation({ summary: 'Boost an existing published post' })
   async boostPost(
     @CurrentUser() user: JwtPayload,

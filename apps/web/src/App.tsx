@@ -13,6 +13,9 @@ import { CampaignsPage } from '@/features/campaigns/CampaignsPage';
 import { CampaignDetailPage } from '@/features/campaigns/CampaignDetailPage';
 import { CreateCampaignPage } from '@/features/campaigns/CreateCampaignPage';
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
+import { SettingsLayout } from '@/features/settings/SettingsLayout';
+import { MembersPage } from '@/features/settings/MembersPage';
+import { AuditLogPage } from '@/features/settings/AuditLogPage';
 import { Toaster } from '@/components/ui/toaster';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -68,6 +71,11 @@ function App() {
           <Route path="campaigns/create" element={<CreateCampaignPage />} />
           <Route path="campaigns/:id" element={<CampaignDetailPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
+          <Route path="settings" element={<SettingsLayout />}>
+            <Route index element={<Navigate to="/settings/members" />} />
+            <Route path="members" element={<MembersPage />} />
+            <Route path="audit-log" element={<AuditLogPage />} />
+          </Route>
         </Route>
 
         {/* Catch all */}

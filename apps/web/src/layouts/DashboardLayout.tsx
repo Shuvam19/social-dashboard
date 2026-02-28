@@ -13,6 +13,7 @@ import {
   Plus,
   Check,
   User as UserIcon,
+  Settings,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -41,12 +42,13 @@ import { useAuthStore } from '@/lib/store';
 import { authApi, usersApi, tenantsApi } from '@/lib/api';
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Accounts', href: '/accounts', icon: Share2 },
-  { name: 'Posts', href: '/posts', icon: FileText },
-  { name: 'Inbox', href: '/inbox', icon: MessageSquare },
-  { name: 'Campaigns', href: '/campaigns', icon: Megaphone },
-  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, minRole: 'ANALYST' },
+  { name: 'Accounts', href: '/accounts', icon: Share2, minRole: 'EDITOR' },
+  { name: 'Posts', href: '/posts', icon: FileText, minRole: 'ANALYST' },
+  { name: 'Inbox', href: '/inbox', icon: MessageSquare, minRole: 'EDITOR' },
+  { name: 'Campaigns', href: '/campaigns', icon: Megaphone, minRole: 'PUBLISHER' },
+  { name: 'Analytics', href: '/analytics', icon: BarChart3, minRole: 'ANALYST' },
+  { name: 'Settings', href: '/settings', icon: Settings, minRole: 'OWNER' },
 ];
 
 export function DashboardLayout() {
@@ -61,7 +63,7 @@ export function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, tenant, logout, refreshToken, setTokens, setTenant, setUser } = useAuthStore();
+  const { user, tenant, logout, refreshToken, setTokens, setTenant, setUser, setRoleAndPermissions, hasRole } = useAuthStore();
 
   useEffect(() => {
     usersApi.getTenants().then((data) => setTenants(data)).catch(() => {});
@@ -88,17 +90,19 @@ export function DashboardLayout() {
   const handleSwitchTenant = async (tenantId: string) => {
     if (tenantId === tenant?.id) return;
     try {
-      const tokens = await tenantsApi.switchTenant(tenantId);
+      const result = await tenantsApi.switchTenant(tenantId);
       // 1. Update tokens first so subsequent API calls use the new token
-      setTokens(tokens.accessToken, tokens.refreshToken);
-      // 2. Clear all cached query data so remounted components start fresh
+      setTokens(result.accessToken, result.refreshToken);
+      // 2. Update role and permissions for new tenant
+      setRoleAndPermissions(result.role, result.permissions);
+      // 3. Clear all cached query data so remounted components start fresh
       queryClient.removeQueries();
-      // 3. Update tenant – this changes the Outlet key, forcing full remount
+      // 4. Update tenant – this changes the Outlet key, forcing full remount
       const selectedMembership = tenants.find((m) => m.tenant?.id === tenantId);
       if (selectedMembership?.tenant) {
         setTenant(selectedMembership.tenant);
       }
-      // 4. Navigate to dashboard
+      // 5. Navigate to dashboard
       navigate('/dashboard', { replace: true });
     } catch {
       // Ignore errors
@@ -223,7 +227,9 @@ export function DashboardLayout() {
 
           {/* Navigation */}
           <nav className="flex-1 px-3 py-4 space-y-1">
-            {navigation.map((item) => {
+            {navigation
+              .filter((item) => hasRole(item.minRole))
+              .map((item) => {
               const isActive = location.pathname.startsWith(item.href);
               return (
                 <Link
