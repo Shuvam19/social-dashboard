@@ -309,7 +309,7 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod pull api web
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 ```
 
----
+--- 
 
 ## Switching from LocalStack to Real AWS S3
 
