@@ -1,5 +1,5 @@
 # ---- Base ----
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
 WORKDIR /app
 
@@ -25,20 +25,32 @@ RUN pnpm --filter @social-dashboard/shared build
 RUN pnpm --filter @social-dashboard/api build
 
 # ---- Production ----
-FROM node:20-alpine AS production
+FROM node:22-alpine AS production
+RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy built output and prisma
-COPY --from=build /app/apps/api/dist ./dist
-COPY --from=build /app/apps/api/prisma ./prisma
-COPY --from=build /app/apps/api/package.json ./package.json
-COPY --from=build /app/apps/api/node_modules ./node_modules
+# Copy package files for production install
+COPY --from=build /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/package.json ./
+COPY --from=build /app/apps/api/package.json ./apps/api/
+COPY --from=build /app/packages/shared/package.json ./packages/shared/
+
+# Install production dependencies only (includes prisma CLI)
+RUN pnpm install --frozen-lockfile --prod
+
+# Copy built output and prisma schema
+COPY --from=build /app/apps/api/dist ./apps/api/dist
+COPY --from=build /app/apps/api/prisma ./apps/api/prisma
+
+# Copy generated Prisma client
+COPY --from=build /app/apps/api/node_modules/.prisma ./apps/api/node_modules/.prisma
+COPY --from=build /app/apps/api/node_modules/@prisma ./apps/api/node_modules/@prisma
 
 # Copy shared package (needed at runtime)
-COPY --from=build /app/packages/shared/dist ../packages/shared/dist
-COPY --from=build /app/packages/shared/package.json ../packages/shared/package.json
+COPY --from=build /app/packages/shared/dist ./packages/shared/dist
+
+WORKDIR /app/apps/api
 
 EXPOSE 3000
 
