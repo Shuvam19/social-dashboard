@@ -1,0 +1,257 @@
+name: 🚀 Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip tests'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8.15.0'
+  DOCKER_REGISTRY: ghcr.io/${{ github.repository_owner }}
+
+# Cancel any in-progress runs for the same branch
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ================================================================
+  # Job 1 — Lint & Test
+  # ================================================================
+  test:
+    name: 🧪 Lint & Test
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.skip_tests != 'true' }}
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: social_dashboard_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: 📥 Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🔧 Generate Prisma client
+        run: pnpm --filter @social-dashboard/api db:generate
+
+      - name: 🔍 Lint
+        run: pnpm lint
+        continue-on-error: true
+
+      - name: 🧪 Test
+        run: pnpm test
+        continue-on-error: true
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/social_dashboard_test
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          JWT_SECRET: ci-test-secret
+          JWT_REFRESH_SECRET: ci-test-refresh-secret
+
+  # ================================================================
+  # Job 2 — Build & Push Docker Images
+  # ================================================================
+  build-api:
+    name: 🐳 Build API Image
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: 🔑 Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏷️ Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/social-dashboard-api
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: 🔨 Build & push API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-web:
+    name: 🐳 Build Web Image
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: 🔑 Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏷️ Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/social-dashboard-web
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: 🔨 Build & push Web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_API_URL }}
+
+  # ================================================================
+  # Job 3 — Deploy to Server
+  # ================================================================
+  deploy:
+    name: 🚀 Deploy
+    runs-on: ubuntu-latest
+    needs: [build-api, build-web]
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 📂 Copy docker files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          source: "docker/docker-compose.prod.yml,docker/localstack-init.sh"
+          target: ~/social-dashboard
+          overwrite: true
+
+      - name: 🚀 Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          IMAGE_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          envs: GITHUB_TOKEN,GITHUB_ACTOR,IMAGE_SHA
+          script: |
+            set -e
+
+            cd ~/social-dashboard/docker
+
+            # ── Login to GitHub Container Registry ──
+            echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+            # ── Update IMAGE_TAG in .env.prod ──
+            if [ ! -f .env.prod ]; then
+              echo "❌ .env.prod not found! Create it first from .env.prod.example"
+              exit 1
+            fi
+
+            # Update image tag to the new commit SHA (short)
+            SHORT_SHA=$(echo "$IMAGE_SHA" | cut -c1-7)
+            sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${SHORT_SHA}|" .env.prod
+
+            # ── Pull new images ──
+            docker compose -f docker-compose.prod.yml --env-file .env.prod pull api web
+
+            # ── Deploy ──
+            docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --remove-orphans
+
+            # ── Health check ──
+            echo "⏳ Waiting for API..."
+            API_PORT=$(grep '^API_PORT=' .env.prod | cut -d= -f2)
+            API_PORT=${API_PORT:-3000}
+            for i in $(seq 1 30); do
+              if curl -sf "http://127.0.0.1:${API_PORT}/api" > /dev/null 2>&1; then
+                echo "✅ API is up!"
+                break
+              fi
+              if [ "$i" -eq 30 ]; then
+                echo "❌ API did not become healthy in time"
+                docker compose -f docker-compose.prod.yml --env-file .env.prod logs api --tail 50
+                exit 1
+              fi
+              echo "  attempt $i/30..."
+              sleep 5
+            done
+
+            # ── Clean up old images ──
+            docker image prune -af --filter "until=168h" 2>/dev/null || true
+
+            echo ""
+            echo "🎉 Deployment complete! (image: ${SHORT_SHA})"

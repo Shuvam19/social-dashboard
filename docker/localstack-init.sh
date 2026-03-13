@@ -9,7 +9,7 @@ awslocal s3 mb s3://social-dashboard-uploads
 awslocal s3api put-bucket-cors --bucket social-dashboard-uploads --cors-configuration '{
   "CORSRules": [
     {
-      "AllowedOrigins": ["http://localhost:5173", "http://localhost:3000"],
+      "AllowedOrigins": ["*"],
       "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
       "AllowedHeaders": ["*"],
       "ExposeHeaders": ["ETag"],
