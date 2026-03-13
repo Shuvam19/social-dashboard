@@ -266,7 +266,7 @@ export function CreatePostPage() {
       const uploadedUrls: string[] = [];
 
       await Promise.all(
-        filesToUpload.map(async (media, index) => {
+        filesToUpload.map(async (media) => {
           // 1. Get pre-signed URL from server
           const { uploadUrl, fileUrl } = await uploadsApi.getPresignedUrl(
             media.file.name,

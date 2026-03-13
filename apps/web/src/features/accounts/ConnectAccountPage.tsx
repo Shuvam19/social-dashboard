@@ -1,21 +1,11 @@
-import { useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { socialAccountsApi } from '@/lib/api';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
-import {
-  Facebook,
-  Instagram,
-  Linkedin,
-  Twitter,
-  Music,
-  Loader2,
-  CheckCircle,
-  XCircle,
-  ArrowLeft,
-} from 'lucide-react';
+import {useEffect} from 'react';
+import {Link, useSearchParams} from 'react-router-dom';
+import {useMutation, useQueryClient} from '@tanstack/react-query';
+import {socialAccountsApi} from '@/lib/api';
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
+import {Button} from '@/components/ui/button';
+import {useToast} from '@/components/ui/use-toast';
+import {ArrowLeft, CheckCircle, Facebook, Instagram, Linkedin, Loader2, Music, Twitter, XCircle,} from 'lucide-react';
 
 const platforms = [
   {
@@ -79,7 +69,7 @@ export function ConnectAccountPage() {
 
   const success = searchParams.get('success');
   const error = searchParams.get('error');
-  const accountId = searchParams.get('accountId');
+  //const _accountId = searchParams.get('accountId');
 
   useEffect(() => {
     if (success === 'true') {
@@ -99,8 +89,7 @@ export function ConnectAccountPage() {
 
   const connectMutation = useMutation({
     mutationFn: async (platform: string) => {
-      const response = await socialAccountsApi.getAuthUrl(platform);
-      return response;
+      return await socialAccountsApi.getAuthUrl(platform);
     },
     onSuccess: (data) => {
       // Redirect to OAuth URL
