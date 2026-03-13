@@ -47,14 +47,16 @@ services:
     image: ${DOCKER_REGISTRY}/social-dashboard-api:${IMAGE_TAG:-latest}
     container_name: sd-api
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - .env.prod
     environment:
       NODE_ENV: production
-      # Redis (container networking)
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Redis (host — not in Docker, use host.docker.internal or .env.prod REDIS_HOST)
+      REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       # S3 / LocalStack (container networking)
       S3_ENDPOINT: http://localstack:4566
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-test}
@@ -65,9 +67,10 @@ services:
       S3_PUBLIC_URL: ${S3_PUBLIC_URL}
     ports:
       - "127.0.0.1:${API_PORT:-3172}:3000"
+    # depends_on:
+    #   redis:
+    #     condition: service_healthy
     depends_on:
-      redis:
-        condition: service_healthy
       localstack:
         condition: service_healthy
     networks:
