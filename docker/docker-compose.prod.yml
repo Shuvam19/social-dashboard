@@ -2,22 +2,22 @@ version: '3.8'
 
 services:
   # ============== Infrastructure ==============
-  redis:
-    image: redis:7-alpine
-    container_name: sd-redis
-    restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
-    volumes:
-      - redis_data:/data
-    ports:
-      - "127.0.0.1:6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - sd-network
+#  redis:
+#    image: redis:7-alpine
+#    container_name: sd-redis
+#    restart: unless-stopped
+#    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+#    volumes:
+#      - redis_data:/data
+#    ports:
+#      - "127.0.0.1:6379:6379"
+#    healthcheck:
+#      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+#    networks:
+#      - sd-network
 
   localstack:
     image: localstack/localstack:latest
