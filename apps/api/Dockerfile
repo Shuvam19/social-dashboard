@@ -36,16 +36,15 @@ COPY --from=build /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/package.json
 COPY --from=build /app/apps/api/package.json ./apps/api/
 COPY --from=build /app/packages/shared/package.json ./packages/shared/
 
-# Install production dependencies only (includes prisma CLI)
+# Install production dependencies only
 RUN pnpm install --frozen-lockfile --prod
 
-# Copy built output and prisma schema
-COPY --from=build /app/apps/api/dist ./apps/api/dist
+# Copy prisma schema and generate client in production stage
 COPY --from=build /app/apps/api/prisma ./apps/api/prisma
+RUN cd apps/api && npx prisma generate
 
-# Copy generated Prisma client
-COPY --from=build /app/apps/api/node_modules/.prisma ./apps/api/node_modules/.prisma
-COPY --from=build /app/apps/api/node_modules/@prisma ./apps/api/node_modules/@prisma
+# Copy built output
+COPY --from=build /app/apps/api/dist ./apps/api/dist
 
 # Copy shared package (needed at runtime)
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
