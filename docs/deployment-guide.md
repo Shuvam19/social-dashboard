@@ -9,9 +9,9 @@ Step-by-step guide for first-time server setup and automated deployments via Git
 ```
   Browser ──▶ Nginx (already on server — social.shuvamkumar.com)
                   │
-                  ├── /           ──▶  sd-web   (port 5173)   React SPA
-                  ├── /api/       ──▶  sd-api   (port 3000)   NestJS API
-                  └── /socket.io/ ──▶  sd-api   (port 3000)   WebSocket
+                  ├── /           ──▶  sd-web   (port 5174)   React SPA
+                  ├── /api/       ──▶  sd-api   (port 3001)   NestJS API
+                  └── /socket.io/ ──▶  sd-api   (port 3001)   WebSocket
                                            │
                           ┌────────────────┼────────────────┐
                           ▼                ▼                ▼
@@ -26,8 +26,8 @@ Step-by-step guide for first-time server setup and automated deployments via Git
 | PostgreSQL | External RDS | You provide the `DATABASE_URL` |
 | Redis | Docker on server | Managed by `docker-compose.prod.yml` |
 | LocalStack (S3) | Docker on server | For file uploads; switch to real AWS S3 later |
-| API (NestJS) | Docker on server | Port `3000` |
-| Web (React) | Docker on server | Port `5173` |
+| API (NestJS) | Docker on server | Port `3172` |
+| Web (React) | Docker on server | Port `5174` |
 
 **CI/CD Flow:**
 ```
@@ -113,8 +113,8 @@ DOCKER_REGISTRY=ghcr.io/YOUR_GITHUB_USERNAME
 IMAGE_TAG=latest
 
 # ── Ports (match your nginx proxy_pass) ──────────────────────────────────────
-API_PORT=3000
-WEB_PORT=5173
+API_PORT=3172
+WEB_PORT=5174
 
 # ── PostgreSQL (your external RDS URL) ───────────────────────────────────────
 DATABASE_URL=postgresql://USER:PASSWORD@your-rds-host.com:5432/social_dashboard?schema=public
@@ -164,7 +164,7 @@ server {
 
     # ── Frontend (React SPA) ──
     location / {
-        proxy_pass http://127.0.0.1:5173;
+        proxy_pass http://127.0.0.1:5174;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -174,7 +174,7 @@ server {
 
     # ── API ──
     location /api/ {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3172;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -185,7 +185,7 @@ server {
 
     # ── WebSocket (Socket.IO) ──
     location /socket.io/ {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3172;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -280,7 +280,7 @@ docker logs sd-api --tail 30
 docker logs sd-web --tail 10
 
 # Test API directly on the server
-curl http://127.0.0.1:3000/api
+curl http://127.0.0.1:3172/api
 
 # Test via your domain
 curl https://social.shuvamkumar.com/api
