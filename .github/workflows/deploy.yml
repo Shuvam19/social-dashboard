@@ -193,7 +193,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
           source: "docker/docker-compose.prod.yml,docker/localstack-init.sh"
-          target: ~/social-dashboard
+          target: /home/shuvamkumar-social/htdocs/social.shuvamkumar.com
           overwrite: true
 
       - name: 🚀 Deploy via SSH
@@ -211,7 +211,7 @@ jobs:
           script: |
             set -e
 
-            cd ~/social-dashboard/docker
+            cd /home/shuvamkumar-social/htdocs/social.shuvamkumar.com/docker
 
             # ── Login to GitHub Container Registry ──
             echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin

@@ -7,7 +7,7 @@ Step-by-step guide for first-time server setup and automated deployments via Git
 ## Architecture
 
 ```
-  Browser ──▶ Your Nginx (already on server)
+  Browser ──▶ Nginx (already on server — social.shuvamkumar.com)
                   │
                   ├── /           ──▶  sd-web   (port 5173)   React SPA
                   ├── /api/       ──▶  sd-api   (port 3000)   NestJS API
@@ -19,14 +19,29 @@ Step-by-step guide for first-time server setup and automated deployments via Git
                     (Docker)         (Docker / S3)        (PostgreSQL)
 ```
 
+**What runs where:**
+| Component | Where | Notes |
+|---|---|---|
+| Nginx | Already on server | You manage it — just add proxy rules |
+| PostgreSQL | External RDS | You provide the `DATABASE_URL` |
+| Redis | Docker on server | Managed by `docker-compose.prod.yml` |
+| LocalStack (S3) | Docker on server | For file uploads; switch to real AWS S3 later |
+| API (NestJS) | Docker on server | Port `3000` |
+| Web (React) | Docker on server | Port `5173` |
+
 **CI/CD Flow:**
 ```
 Push to main → GitHub Actions → Build Docker images → Push to GHCR → SSH → Pull & restart containers
 ```
 
+**Server project directory:**
+```
+/home/shuvamkumar-social/htdocs/social.shuvamkumar.com/
+```
+
 ---
 
-## Files Created
+## Files Overview
 
 | File | Purpose |
 |---|---|
@@ -42,36 +57,51 @@ Push to main → GitHub Actions → Build Docker images → Push to GHCR → SSH
 
 ## Step-by-Step First-Time Setup
 
-### Step 1 — Server Prerequisites
+### Step 1 — Install Docker on the Server
 
-SSH into your server and make sure Docker & Docker Compose are installed:
+SSH into your server and install Docker (if not already):
 
 ```bash
-ssh your-user@your-server
+ssh shuvamkumar-social@your-server-ip
 
-# Install Docker (if not already installed)
+# Install Docker
 curl -fsSL https://get.docker.com | sh
 sudo systemctl enable docker && sudo systemctl start docker
 
-# Make sure your user can run Docker
+# Allow your user to run Docker without sudo
 sudo usermod -aG docker $USER
-# Log out and back in for group to take effect
+
+# ⚠️ Log out and back in for the group change to take effect
+exit
+ssh shuvamkumar-social@your-server-ip
 
 # Verify
 docker --version
 docker compose version
 ```
 
-### Step 2 — Create Project Directory on Server
+### Step 2 — Create the Project Directory on Server
 
 ```bash
-mkdir -p ~/social-dashboard/docker
+mkdir -p /home/shuvamkumar-social/htdocs/social.shuvamkumar.com/docker
 ```
 
-### Step 3 — Create the `.env.prod` File on the Server
+### Step 3 — Copy Docker Files to the Server (first time only)
+
+From your **local machine**, copy the required files:
 
 ```bash
-cd ~/social-dashboard/docker
+scp docker/docker-compose.prod.yml \
+    docker/localstack-init.sh \
+    shuvamkumar-social@your-server-ip:/home/shuvamkumar-social/htdocs/social.shuvamkumar.com/docker/
+```
+
+> After the first deploy, GitHub Actions will automatically sync these files on every push.
+
+### Step 4 — Create the `.env.prod` File on the Server
+
+```bash
+cd /home/shuvamkumar-social/htdocs/social.shuvamkumar.com/docker
 nano .env.prod
 ```
 
@@ -86,73 +116,49 @@ IMAGE_TAG=latest
 API_PORT=3000
 WEB_PORT=5173
 
-# ── PostgreSQL (your external RDS) ───────────────────────────────────────────
+# ── PostgreSQL (your external RDS URL) ───────────────────────────────────────
 DATABASE_URL=postgresql://USER:PASSWORD@your-rds-host.com:5432/social_dashboard?schema=public
 
 # ── Redis ────────────────────────────────────────────────────────────────────
-REDIS_PASSWORD=<generate with: openssl rand -base64 24>
+REDIS_PASSWORD=<generate-see-below>
 
 # ── JWT ──────────────────────────────────────────────────────────────────────
-JWT_SECRET=<generate with: openssl rand -hex 32>
-JWT_REFRESH_SECRET=<generate with: openssl rand -hex 32>
+JWT_SECRET=<generate-see-below>
+JWT_REFRESH_SECRET=<generate-see-below>
 
 # ── Application ─────────────────────────────────────────────────────────────
-FRONTEND_URL=https://your-domain.com
+FRONTEND_URL=https://social.shuvamkumar.com
 API_PREFIX=api
-ENCRYPTION_KEY=<generate with: openssl rand -hex 16>
+ENCRYPTION_KEY=<generate-see-below>
 
 # ── LocalStack S3 ───────────────────────────────────────────────────────────
 AWS_REGION=us-east-1
 S3_ACCESS_KEY=test
 S3_SECRET_KEY=test
 S3_BUCKET=social-dashboard-uploads
-# S3_PUBLIC_URL is how the *browser* reaches uploaded files.
-# If your nginx proxies :4566, use your domain. Otherwise use server IP.
-S3_PUBLIC_URL=http://YOUR_SERVER_IP:4566/social-dashboard-uploads
+# How the browser reaches uploaded files (set after configuring nginx — see Step 5)
+S3_PUBLIC_URL=https://social.shuvamkumar.com/s3/social-dashboard-uploads
 ```
 
-> **Generate secrets quickly:**
-> ```bash
-> echo "REDIS_PASSWORD=$(openssl rand -base64 24)"
-> echo "JWT_SECRET=$(openssl rand -hex 32)"
-> echo "JWT_REFRESH_SECRET=$(openssl rand -hex 32)"
-> echo "ENCRYPTION_KEY=$(openssl rand -hex 16)"
-> ```
-
-### Step 4 — Open LocalStack Port (if needed)
-
-Since the browser needs to reach LocalStack to load uploaded images, you may need to allow port `4566` through your firewall, **or** add a proxy rule in your existing nginx.
-
-**Option A — Expose port 4566 directly (simple):**
+**Generate all secrets in one go:**
 
 ```bash
-# If using ufw
-sudo ufw allow 4566/tcp
+echo "REDIS_PASSWORD=$(openssl rand -base64 24)"
+echo "JWT_SECRET=$(openssl rand -hex 32)"
+echo "JWT_REFRESH_SECRET=$(openssl rand -hex 32)"
+echo "ENCRYPTION_KEY=$(openssl rand -hex 16)"
 ```
 
-Then set `S3_PUBLIC_URL=http://YOUR_SERVER_IP:4566/social-dashboard-uploads` in `.env.prod`.
-
-**Option B — Proxy through nginx (cleaner):**
-
-Add this to your existing nginx config:
-
-```nginx
-location /s3/ {
-    proxy_pass http://127.0.0.1:4566/;
-    proxy_set_header Host $host;
-}
-```
-
-Then set `S3_PUBLIC_URL=https://your-domain.com/s3/social-dashboard-uploads` in `.env.prod`.
+Copy each generated value into your `.env.prod`.
 
 ### Step 5 — Update Your Existing Nginx Config
 
-Add proxy rules for the API and Web app to your existing nginx server block:
+Since you already have Nginx and the domain `social.shuvamkumar.com` set up, add these proxy rules to your existing server block:
 
 ```nginx
 server {
     listen 443 ssl;
-    server_name your-domain.com;
+    server_name social.shuvamkumar.com;
 
     # ... your existing SSL config ...
 
@@ -189,14 +195,22 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 86400;
     }
+
+    # ── LocalStack S3 (serves uploaded images) ──
+    location /s3/ {
+        proxy_pass http://127.0.0.1:4566/;
+        proxy_set_header Host $host;
+    }
 }
 ```
 
-Then reload nginx:
+Then test & reload:
 
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
 ```
+
+> The `/s3/` proxy lets the browser load uploaded images via `https://social.shuvamkumar.com/s3/social-dashboard-uploads/...` without exposing port 4566 directly.
 
 ### Step 6 — Configure GitHub Repository Secrets
 
@@ -207,21 +221,26 @@ Add these **5 secrets**:
 | Secret Name | Value |
 |---|---|
 | `SERVER_HOST` | Your server's IP address (e.g. `203.0.113.50`) |
-| `SERVER_USER` | SSH username (e.g. `ubuntu`, `deploy`, `root`) |
-| `SERVER_SSH_KEY` | The **private** SSH key (full content, including `-----BEGIN...` and `-----END...`) |
+| `SERVER_USER` | `shuvamkumar-social` |
+| `SERVER_SSH_KEY` | The **private** SSH key (full content including `-----BEGIN...` and `-----END...` lines) |
 | `SERVER_PORT` | SSH port (usually `22`) |
-| `VITE_API_URL` | Your domain URL (e.g. `https://your-domain.com`) — baked into the frontend at build time |
+| `VITE_API_URL` | `https://social.shuvamkumar.com` |
 
-> **How to get the SSH private key:**
-> - If you already SSH into the server, use the same key: `cat ~/.ssh/id_ed25519`
-> - Or generate a dedicated one:
->   ```bash
->   ssh-keygen -t ed25519 -C "github-deploy" -f ~/.ssh/github_deploy -N ""
->   # Add public key to server
->   ssh-copy-id -i ~/.ssh/github_deploy.pub your-user@your-server
->   # Copy private key to clipboard
->   cat ~/.ssh/github_deploy
->   ```
+> **How to get / create the SSH key:**
+>
+> If you already SSH into the server with a key, use that same private key:
+> ```bash
+> cat ~/.ssh/id_ed25519
+> ```
+>
+> Or generate a dedicated deploy key:
+> ```bash
+> ssh-keygen -t ed25519 -C "github-deploy" -f ~/.ssh/github_deploy -N ""
+> # Add the public key to the server
+> ssh-copy-id -i ~/.ssh/github_deploy.pub shuvamkumar-social@your-server-ip
+> # Copy the private key — paste this into the GitHub secret
+> cat ~/.ssh/github_deploy
+> ```
 
 ### Step 7 — Create a GitHub Environment
 
@@ -237,32 +256,34 @@ git commit -m "ci: add deployment pipeline"
 git push origin main
 ```
 
-This triggers the workflow:
+This triggers the GitHub Actions workflow:
 1. **Lint & Test** — runs against CI Postgres + Redis
 2. **Build API image** — multi-stage Docker build → pushes to `ghcr.io`
 3. **Build Web image** — multi-stage Docker build → pushes to `ghcr.io`
-4. **Deploy** — SSHs into server, pulls images, restarts containers
+4. **Deploy** — SSHs into server, copies docker files, pulls images, restarts containers
 
 Monitor progress: **GitHub repo → Actions tab → click the running workflow**.
 
 ### Step 9 — Verify
 
 ```bash
-ssh your-user@your-server
+ssh shuvamkumar-social@your-server-ip
 
-# Check containers
+# Check containers are running
 docker ps
 # Should show: sd-api, sd-web, sd-redis, sd-localstack
 
-# Check logs
+# Check API logs
 docker logs sd-api --tail 30
+
+# Check web logs
 docker logs sd-web --tail 10
 
-# Test API directly
+# Test API directly on the server
 curl http://127.0.0.1:3000/api
 
 # Test via your domain
-curl https://your-domain.com/api
+curl https://social.shuvamkumar.com/api
 ```
 
 ---
@@ -276,14 +297,14 @@ GitHub repo → **Actions** → **🚀 Build & Deploy** → **Run workflow** →
 ### Rollback to a previous version
 
 ```bash
-ssh your-user@your-server
-cd ~/social-dashboard/docker
+ssh shuvamkumar-social@your-server-ip
+cd /home/shuvamkumar-social/htdocs/social.shuvamkumar.com/docker
 
 # Edit .env.prod and change IMAGE_TAG to a previous short SHA
 nano .env.prod
 # IMAGE_TAG=abc1234
 
-# Redeploy
+# Pull that version and restart
 docker compose -f docker-compose.prod.yml --env-file .env.prod pull api web
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 ```
@@ -292,10 +313,10 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 
 ## Switching from LocalStack to Real AWS S3
 
-When you're ready:
+When you're ready to use real S3:
 
 1. Create an S3 bucket and IAM user in AWS
-2. Update `docker/.env.prod` on the server:
+2. Update `.env.prod` on the server:
 
 ```env
 S3_ACCESS_KEY=AKIA...
@@ -304,7 +325,7 @@ S3_BUCKET=your-real-bucket-name
 S3_PUBLIC_URL=https://your-real-bucket-name.s3.us-east-1.amazonaws.com
 ```
 
-3. In `docker/docker-compose.prod.yml`, remove the `S3_ENDPOINT` and `S3_FORCE_PATH_STYLE` env vars from the `api` service (or set them to empty):
+3. In `docker/docker-compose.prod.yml`, remove or comment out `S3_ENDPOINT` and `S3_FORCE_PATH_STYLE` from the `api` service:
 
 ```yaml
     environment:
@@ -312,19 +333,31 @@ S3_PUBLIC_URL=https://your-real-bucket-name.s3.us-east-1.amazonaws.com
       # S3_FORCE_PATH_STYLE: "false" # default for real AWS
 ```
 
-4. You can also stop LocalStack to save resources:
+4. Stop LocalStack to free up resources:
 
 ```bash
+cd /home/shuvamkumar-social/htdocs/social.shuvamkumar.com/docker
 docker compose -f docker-compose.prod.yml --env-file .env.prod stop localstack
 ```
+
+5. Remove the `/s3/` location block from your nginx config and reload nginx.
 
 ---
 
 ## Useful Commands
 
 ```bash
-# View all logs
+# SSH into server
+ssh shuvamkumar-social@your-server-ip
+
+# Go to project
+cd /home/shuvamkumar-social/htdocs/social.shuvamkumar.com/docker
+
+# View all logs (live)
 docker compose -f docker-compose.prod.yml --env-file .env.prod logs -f
+
+# View logs for a specific service
+docker compose -f docker-compose.prod.yml --env-file .env.prod logs -f api
 
 # Restart a single service
 docker compose -f docker-compose.prod.yml --env-file .env.prod restart api
@@ -332,9 +365,14 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod restart api
 # Run Prisma migration manually
 docker exec sd-api npx prisma migrate deploy
 
-# Open Prisma Studio (access via SSH tunnel)
+# Open Prisma Studio (access via SSH tunnel on your local machine)
+# On server:
 docker exec -it sd-api npx prisma studio
+# Then SSH tunnel from local:  ssh -L 5555:127.0.0.1:5555 shuvamkumar-social@your-server-ip
 
-# Clean up disk
+# Stop everything
+docker compose -f docker-compose.prod.yml --env-file .env.prod down
+
+# Clean up disk space
 docker system prune -af
 ```
