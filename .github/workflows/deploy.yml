@@ -193,6 +193,8 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
+          timeout: 60s
+          command_timeout: 10m
           source: "docker/docker-compose.prod.yml,docker/localstack-init.sh"
           target: /home/shuvamkumar-social/htdocs/social.shuvamkumar.com
           overwrite: true
@@ -208,6 +210,8 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
+          timeout: 60s
+          command_timeout: 20m
           envs: GITHUB_TOKEN,GITHUB_ACTOR,IMAGE_SHA
           script: |
             set -e
