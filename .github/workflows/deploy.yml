@@ -186,66 +186,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 🌐 Check connectivity to server
+      - name: 🔑 Set up SSH
         run: |
-          echo "Testing connection to ${{ secrets.SERVER_HOST }} on port ${{ secrets.SERVER_PORT }}..."
-          nc -zv -w 10 ${{ secrets.SERVER_HOST }} ${{ secrets.SERVER_PORT }} || echo "⚠️ Cannot reach server port! Check your firewall/security groups."
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
       - name: 📂 Copy docker files to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
-          debug: true
-          timeout: 60s
-          command_timeout: 10m
-          source: "docker/docker-compose.prod.yml,docker/localstack-init.sh"
-          target: /home/shuvamkumar-social/htdocs/social.shuvamkumar.com
-          overwrite: true
+        run: |
+          scp -P ${{ secrets.SERVER_PORT }} -i ~/.ssh/deploy_key \
+            docker/docker-compose.prod.yml docker/localstack-init.sh \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/shuvamkumar-social/htdocs/social.shuvamkumar.com/docker/
 
       - name: 🚀 Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_ACTOR: ${{ github.actor }}
-          IMAGE_SHA: ${{ github.sha }}
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
-          debug: true
-          timeout: 60s
-          command_timeout: 20m
-          envs: GITHUB_TOKEN,GITHUB_ACTOR,IMAGE_SHA
-          script: |
+        run: |
+          ssh -p ${{ secrets.SERVER_PORT }} -i ~/.ssh/deploy_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+            "GITHUB_TOKEN='${{ secrets.GITHUB_TOKEN }}' GITHUB_ACTOR='${{ github.actor }}' IMAGE_SHA='${{ github.sha }}' bash -s" << 'EOF'
             set -e
-
             cd /home/shuvamkumar-social/htdocs/social.shuvamkumar.com/docker
 
-            # ── Login to GitHub Container Registry ──
+            # Login to GHCR
             echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
-            # ── Update IMAGE_TAG in .env.prod ──
-            if [ ! -f .env.prod ]; then
-              echo "❌ .env.prod not found! Create it first from .env.prod.example"
-              exit 1
-            fi
-
-            # Update image tag to the new commit SHA (short)
+            # Update IMAGE_TAG
             SHORT_SHA=$(echo "$IMAGE_SHA" | cut -c1-7)
             sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${SHORT_SHA}|" .env.prod
 
-            # ── Pull new images ──
+            # Pull and Deploy
             docker compose -f docker-compose.prod.yml --env-file .env.prod pull api web
-
-            # ── Deploy ──
             docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --remove-orphans
 
-            # ── Health check ──
-            echo "⏳ Waiting for API..."
+            # Health check
             API_PORT=$(grep '^API_PORT=' .env.prod | cut -d= -f2)
             API_PORT=${API_PORT:-3172}
             for i in $(seq 1 30); do
@@ -253,17 +225,6 @@ jobs:
                 echo "✅ API is up!"
                 break
               fi
-              if [ "$i" -eq 30 ]; then
-                echo "❌ API did not become healthy in time"
-                docker compose -f docker-compose.prod.yml --env-file .env.prod logs api --tail 50
-                exit 1
-              fi
-              echo "  attempt $i/30..."
               sleep 5
             done
-
-            # ── Clean up old images ──
-            docker image prune -af --filter "until=168h" 2>/dev/null || true
-
-            echo ""
-            echo "🎉 Deployment complete! (image: ${SHORT_SHA})"
+          EOF
