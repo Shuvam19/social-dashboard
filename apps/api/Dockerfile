@@ -1,5 +1,6 @@
 # ---- Base ----
 FROM node:22-alpine AS base
+RUN apk add --no-cache openssl libc6-compat
 RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
 WORKDIR /app
 
@@ -26,6 +27,7 @@ RUN pnpm --filter @social-dashboard/api build
 
 # ---- Production ----
 FROM node:22-alpine AS production
+RUN apk add --no-cache openssl libc6-compat
 WORKDIR /app
 
 ENV NODE_ENV=production
