@@ -186,6 +186,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: 🌐 Check connectivity to server
+        run: |
+          echo "Testing connection to ${{ secrets.SERVER_HOST }} on port ${{ secrets.SERVER_PORT }}..."
+          nc -zv -w 10 ${{ secrets.SERVER_HOST }} ${{ secrets.SERVER_PORT }} || echo "⚠️ Cannot reach server port! Check your firewall/security groups."
+
       - name: 📂 Copy docker files to server
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -193,6 +198,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
+          debug: true
           timeout: 60s
           command_timeout: 10m
           source: "docker/docker-compose.prod.yml,docker/localstack-init.sh"
@@ -210,6 +216,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
+          debug: true
           timeout: 60s
           command_timeout: 20m
           envs: GITHUB_TOKEN,GITHUB_ACTOR,IMAGE_SHA
