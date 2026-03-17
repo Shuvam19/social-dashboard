@@ -178,7 +178,7 @@ jobs:
   # ================================================================
   deploy:
     name: 🚀 Deploy
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [build-api, build-web]
     if: always() && needs.build-api.result == 'success' && needs.build-web.result == 'success'
     environment: production
