@@ -5,9 +5,10 @@ import {socialAccountsApi} from '@/lib/api';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
 import {useToast} from '@/components/ui/use-toast';
-import {ArrowLeft, CheckCircle, Facebook, Instagram, Linkedin, Loader2, Music, Twitter, XCircle,} from 'lucide-react';
+import {ArrowLeft, CheckCircle, Loader2, XCircle,} from 'lucide-react';
 
-const platforms = [
+const platforms: any[] = [
+  /*
   {
     id: 'FACEBOOK',
     name: 'Facebook',
@@ -60,6 +61,7 @@ const platforms = [
     color: 'bg-[#E60023] hover:bg-[#E60023]/90',
     available: true,
   },
+  */
 ];
 
 export function ConnectAccountPage() {
