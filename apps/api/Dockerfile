@@ -54,4 +54,4 @@ WORKDIR /app/apps/api
 EXPOSE 3000
 
 # Run migrations then start the app
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+CMD ["sh", "-c", "node dist/main"]
