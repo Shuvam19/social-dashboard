@@ -48,6 +48,7 @@ const platformColors: Record<string, string> = {
   TWITTER: 'border-black',
   TIKTOK: 'border-black',
   PINTEREST: 'border-[#E60023]',
+  YOUTUBE: 'border-[#FF0000]',
 };
 
 const platformBg: Record<string, string> = {
@@ -57,6 +58,7 @@ const platformBg: Record<string, string> = {
   TWITTER: 'bg-slate-50',
   TIKTOK: 'bg-slate-50',
   PINTEREST: 'bg-red-50',
+  YOUTUBE: 'bg-red-50',
 };
 
 const platformAvatarBg: Record<string, string> = {
@@ -66,6 +68,7 @@ const platformAvatarBg: Record<string, string> = {
   TWITTER: 'bg-black',
   TIKTOK: 'bg-black',
   PINTEREST: 'bg-[#E60023]',
+  YOUTUBE: 'bg-[#FF0000]',
 };
 
 const charLimits: Record<string, number> = {
@@ -75,6 +78,7 @@ const charLimits: Record<string, number> = {
   TWITTER: 280,
   TIKTOK: 2200,
   PINTEREST: 500,
+  YOUTUBE: 5000,
 };
 
 const createPostSchema = z.object({

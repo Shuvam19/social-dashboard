@@ -20,6 +20,7 @@ const platformColors: Record<string, string> = {
   TWITTER: 'bg-black',
   TIKTOK: 'bg-black',
   PINTEREST: 'bg-[#E60023]',
+  YOUTUBE: 'bg-[#FF0000]',
 };
 
 export function DashboardPage() {

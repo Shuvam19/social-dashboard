@@ -19,6 +19,7 @@ const platformColors: Record<string, string> = {
   TWITTER: 'bg-black',
   TIKTOK: 'bg-black',
   PINTEREST: 'bg-[#E60023]',
+  YOUTUBE: 'bg-[#FF0000]',
 };
 
 const platformNames: Record<string, string> = {
@@ -28,6 +29,7 @@ const platformNames: Record<string, string> = {
   TWITTER: 'X (Twitter)',
   TIKTOK: 'TikTok',
   PINTEREST: 'Pinterest',
+  YOUTUBE: 'YouTube',
 };
 
 export function AccountsPage() {

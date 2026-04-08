@@ -6,6 +6,7 @@ import { LinkedInClient } from './linkedin.client';
 import { MetaClient } from './meta.client';
 import { TikTokClient } from './tiktok.client';
 import { PinterestClient } from './pinterest.client';
+import { YouTubeClient } from './youtube.client';
 
 @Injectable()
 export class PlatformClientFactory {
@@ -15,6 +16,7 @@ export class PlatformClientFactory {
     private metaClient: MetaClient,
     private tikTokClient: TikTokClient,
     private pinterestClient: PinterestClient,
+    private youtubeClient: YouTubeClient,
   ) {}
 
   getClient(platform: Platform): PlatformClient {
@@ -30,6 +32,8 @@ export class PlatformClientFactory {
         return this.tikTokClient;
       case Platform.PINTEREST:
         return this.pinterestClient;
+      case Platform.YOUTUBE:
+        return this.youtubeClient;
       default:
         throw new Error(`Unsupported platform: ${platform}`);
     }

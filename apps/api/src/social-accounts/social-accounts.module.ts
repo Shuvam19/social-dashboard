@@ -10,6 +10,7 @@ import { LinkedInClient } from './clients/linkedin.client';
 import { MetaClient } from './clients/meta.client';
 import { TikTokClient } from './clients/tiktok.client';
 import { PinterestClient } from './clients/pinterest.client';
+import { YouTubeClient } from './clients/youtube.client';
 
 @Module({
   controllers: [SocialAccountsController, OAuthController],
@@ -23,6 +24,7 @@ import { PinterestClient } from './clients/pinterest.client';
     MetaClient,
     TikTokClient,
     PinterestClient,
+    YouTubeClient,
   ],
   exports: [SocialAccountsService, PlatformClientFactory],
 })

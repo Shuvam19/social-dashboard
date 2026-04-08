@@ -5,9 +5,17 @@ import {socialAccountsApi} from '@/lib/api';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
 import {useToast} from '@/components/ui/use-toast';
-import {ArrowLeft, CheckCircle, Loader2, XCircle,} from 'lucide-react';
+import {ArrowLeft, CheckCircle, Loader2, XCircle, Youtube} from 'lucide-react';
 
 const platforms: any[] = [
+  {
+    id: 'YOUTUBE',
+    name: 'YouTube',
+    description: 'Connect your YouTube Channel',
+    icon: Youtube,
+    color: 'bg-[#FF0000] hover:bg-[#FF0000]/90',
+    available: true,
+  },
   /*
   {
     id: 'FACEBOOK',

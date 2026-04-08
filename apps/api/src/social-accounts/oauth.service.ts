@@ -55,7 +55,7 @@ export class OAuthService {
       `oauth:state:${state}`,
     );
 
-    if (!storedState || storedState.platform !== platform) {
+    if (!storedState || storedState.platform.toLowerCase() !== platform.toLowerCase()) {
       throw new BadRequestException('Invalid OAuth state');
     }
 
