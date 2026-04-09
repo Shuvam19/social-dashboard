@@ -10,6 +10,7 @@ export const PLATFORM_DISPLAY_NAMES: Record<Platform, string> = {
   [Platform.TWITTER]: 'X (Twitter)',
   [Platform.TIKTOK]: 'TikTok',
   [Platform.PINTEREST]: 'Pinterest',
+  [Platform.YOUTUBE]: 'YouTube',
 };
 
 /**
@@ -22,6 +23,7 @@ export const PLATFORM_COLORS: Record<Platform, string> = {
   [Platform.TWITTER]: '#000000',
   [Platform.TIKTOK]: '#000000',
   [Platform.PINTEREST]: '#E60023',
+  [Platform.YOUTUBE]: '#FF0000',
 };
 
 /**
@@ -34,6 +36,7 @@ export const PLATFORM_ICONS: Record<Platform, string> = {
   [Platform.TWITTER]: 'twitter',
   [Platform.TIKTOK]: 'music',
   [Platform.PINTEREST]: 'pin',
+  [Platform.YOUTUBE]: 'youtube',
 };
 
 /**
@@ -46,6 +49,7 @@ export const PLATFORM_CHAR_LIMITS: Record<Platform, number> = {
   [Platform.TWITTER]: 280,
   [Platform.TIKTOK]: 2200,
   [Platform.PINTEREST]: 500,
+  [Platform.YOUTUBE]: 5000,
 };
 
 /**

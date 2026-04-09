@@ -1,11 +1,12 @@
 // Social Media Platforms
 export enum Platform {
-  FACEBOOK = 'facebook',
-  INSTAGRAM = 'instagram',
-  LINKEDIN = 'linkedin',
-  TWITTER = 'twitter',
-  TIKTOK = 'tiktok',
-  PINTEREST = 'pinterest',
+  FACEBOOK = 'FACEBOOK',
+  INSTAGRAM = 'INSTAGRAM',
+  LINKEDIN = 'LINKEDIN',
+  TWITTER = 'TWITTER',
+  TIKTOK = 'TIKTOK',
+  PINTEREST = 'PINTEREST',
+  YOUTUBE = 'YOUTUBE',
 }
 
 // User Roles for RBAC
